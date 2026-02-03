@@ -12,8 +12,220 @@
 </head>
 
 <body>
+    <h1>Propuesta de TriviaBlast</h1>
+    <a href="autores.html">Autores</a>
+    <p>
+        TriviaBlast es un juego de preguntas y respuestas en línea que permite a los usuarios jugar de forma individual
+        o en salas multijugador (hasta 8 jugadores). Los jugadores pueden practicar y ganar puntos en partidas
+        individuales, o competir en un tablero clásico con categorías por colores en salas privadas. El juego utiliza
+        preguntas de la API pública Open Trivia Database (OpenTDB), que ofrece una amplia variedad de categorías y
+        niveles de dificultad.
+    </p>
+    <h2>Roles y permisos de usuario:</h2>
+    <ol>
+        <li>
+            Jugador
+            <ul>
+                <li>
+                    Gestión de guenta:
+                    <ul>
+                        <li>
+                            Iniciar sesión con credenciales existentes
+                        </li>
+                        <li>
+                            Registrarse como nuevo usuario
+                        </li>
+                        <li>
+                            Cerrar su sesión
+                        </li>
+                        <li>
+                            Eliminar su cuenta permanentemente
+                        </li>
+                    </ul>
+                </li>
+                <li>
+                    Partidas individuales:
+                    <ul>
+                        <li>
+                            Configurar opciones de juego: número de preguntas y dificultad.
+                        </li>
+                        <li>
+                            Responder preguntas para ganar puntos.
+                        </li>
+                        <li>
+                            Finalizar la partida manualmente o al alcanzar el límite de preguntas.
+                        </li>
+                    </ul>
+                </li>
+                <li>
+                    Partidas multijugador:
+                    <ul>
+                        <li>
+                            Crear o unirse a salas privadas mediante código de invitación.
+                        </li>
+                        <li>
+                            Configurar opciones de juego: número de preguntas, categorías y dificultad.
+                        </li>
+                        <li>
+                            Participar como jugador registrado o como invitado (con nombre único).
+                        </li>
+                        <li>
+                            Lanzar el dado para avanzar en el tablero.
+                        </li>
+                        <li>
+                            Responder preguntas según la categoría de la casilla.
+                        </li>
+                        <li>
+                            Abandonar la partida en cualquier momento.
+                        </li>
+                        <li>
+                            Pausar la partida en cualquier momento.
+                        </li>
+                    </ul>
+                </li>
+                <li>
+                    Leaderboard:
+                    <ul>
+                        <li>
+                            Visualizar tu posición y puntuación en el ranking global
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+        </li>
+        <li>
+            Administrador
+            <ul>
+                <li>
+                    Ocultar usuarios específicos del ranking público
+                </li>
+                <li>
+                    Restaurar la visibilidad de usuarios ocultos
+                </li>
+            </ul>
+        </li>
+    </ol>
+    <h2>Modalidades de juego: </h2>
+    <ol>
+        <li>
+            Partida individual:
+            <ul>
+                <li>
+                    El jugador inicia sesión o se registra
+                </li>
+                <li>
+                    Configura la partida: Número de preguntas, categorías y dificultad.
+                </li>
+                <li>
+                    Responder preguntas: Recibe puntos por respuestas correctas según la dificultad y velocidad de
+                    respuesta (límite
+                    de 30 segundos).
+                </li>
+                <li>
+                    La partida finaliza al alcanzar el límite de preguntas por decisión del jugador
+                </li>
+                <li>
+                    Opciones al finalizar: Volver al menú principal o iniciar una nueva partida.
+                </li>
+            </ul>
+        </li>
+        <li>
+            Partida multijugador:
+            <ul>
+                <li>El anfitrión debe haber iniciado sesión o estar registrado.</li>
+                <li>El anfitrión crea una sala privada y configura dificultad y categorías. Se genera un código de
+                    invitación.</li>
+                <li>
+                    Los jugadores se unen mediante código de invitación. Pueden ser:
+                    <ul>
+                        <li>Usuarios registrados.</li>
+                        <li>Invitados (eligen un nombre antes de unirse a la sala).</li>
+                    </ul>
+                </li>
+                <li>El anfitrión inicia la partida y se genera el tablero según las configuraciones elegidas.</li>
+                <li>
+                    Turnos:
+                    <ul>
+                        <li>Cada jugador lanza el dado y avanza a una casilla de un color. Cada color corresponde a una
+                            categoría de pregunta.</li>
+                        <li>
+                            Responde la pregunta correspondiente en 30 segundos o menos:
+                            <ul>
+                                <li>Si acierta, puede volver a tirar.</li>
+                                <li>Si falla, pierde el turno.</li>
+                            </ul>
+                        </li>
+                    </ul>
+                </li>
+                <li>
+                    El primer jugador en llegar a la meta debe contestar correctamente al menos una pregunta de cada
+                    categoría disponible
+                    (mínimo de 4 preguntas). Si falla alguna, pierde el turno y debe volver a intentarlo en su próximo
+                    turno.
+                </li>
+                <li>El primer jugador en responder correctamente todas las preguntas de la meta gana.</li>
+                <li>Puntuación: los jugadores registrados reciben puntos según su posición final.</li>
+                <li>
+                    Como los jugadores pueden abandonar la partida en cualquier momento, se puede producir un final
+                    anticipado cuando
+                    solo queda un jugador. En este caso no se otorgan puntos.
+                </li>
+            </ul>
+        </li>
+    </ol>
+
+    <h2>Sistema de puntos y leaderboard: </h2>
+    <ul>
+        <li>
+            Puntos en partidas individuales:
+            <ul>
+                <li>Basado en la dificultad.</li>
+                <li>Basado en la velocidad de la respuesta.</li>
+            </ul>
+        </li>
+        <li>
+            Puntos en partidas multijugador:
+            <ul>
+                <li>Según la posición relativa obtenida al final de la partida.</li>
+            </ul>
+        </li>
+        <li>
+            El leaderboard solo es visible para los jugadores registrados:
+            <ul>
+                <li>Los usuarios aparecen listados de más a menos puntos.</li>
+                <li>Los administradores pueden ocultar a jugadores del leaderboard.</li>
+            </ul>
+        </li>
+    </ul>
 
 
+    <h2>Tipos de preguntas: </h2>
+    <ul>
+        <li>Las categorías disponibles y los niveles de dificultad son los definidos en la Open Trivia Database.</li>
+        <li>
+            Consideraciones sobre las categorías:
+            <ul>
+                <li>Todas las categorías que empiezan con “Entretenimiento” se consideran una sola categoría de
+                    <strong>Entretenimiento</strong>.
+                </li>
+                <li>Todas las categorías que empiezan por “Ciencia” se consideran una sola categoría de
+                    <strong>Ciencia</strong>.
+                </li>
+            </ul>
+        </li>
+    </ul>
+
+
+    <h2>Diagrama de flujo resumido</h2>
+    <ul>
+        <li>Registro o inicio de sesión.</li>
+        <li>Selección de modalidad: individual o multijugador.</li>
+        <li>Configuración de la partida: opciones de juego y categorías.</li>
+        <li>Desarrollo de la partida.</li>
+        <li>Finalización: cálculo de puntos y actualización del leaderboard.</li>
+    </ul>
+
+    </p>
 </body>
 
 </html>
