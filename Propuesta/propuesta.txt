@@ -1,3 +1,0 @@
-1. Resumir la propuesta
-2. Meter la plantilla de https://github.com/manuel-freire/iw
-3. Poner en la plantilla para que funcione: el texto de la propuesta, la página de autores, y 5 vistas
