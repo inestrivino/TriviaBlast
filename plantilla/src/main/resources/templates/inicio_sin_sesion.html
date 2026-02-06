@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="es" class="h-100" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <th:block th:replace="~{fragments/head :: header}" />
+    <title>IW: Welcome</title>
+</head>
+
+<body class="d-flex flex-column h-100">
+
+    <header th:replace="~{fragments/nav.html :: nav}"></header>
+
+    <div class="container-fluid mt-3">
+        <div class="d-flex justify-content-end">
+            <a href="#" class="btn btn-outline-primary">Log in</a>
+        </div>
+    </div>
+
+    <main class="flex-grow-1 d-flex align-items-center justify-content-center">
+        <div class="text-center">
+
+            <h1 class="mb-5">Bienvenid@</h1>
+
+            <div class="d-flex justify-content-center">
+                <a href="#" class="btn btn-warning btn-lg px-5 py-4 fs-4">
+                    Multiplayer
+                </a>
+            </div>
+
+        </div>
+    </main>
+
+    <th:block th:replace="~{fragments/footer.html :: footer}" />
+
+</body>
+</html>

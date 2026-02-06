@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html class="h-100" xmlns:th="http://www.thymeleaf.org">
+<html lang="es" class="h-100" xmlns:th="http://www.thymeleaf.org">
 
 <head>
     <th:block th:replace="~{fragments/head :: header}" />
@@ -7,15 +7,35 @@
 </head>
 
 <body class="d-flex flex-column h-100">
+
     <header th:replace="~{fragments/nav.html :: nav}"></header>
 
-    <main class="flex-shrink-0">
-        <div class="container">
-            <h1 class="mt-5">Bienvenid@</h1>
+    <div class="container-fluid mt-3">
+        <div class="d-flex justify-content-end gap-3">
+            <a href="#" class="btn btn-outline-primary">Log in</a>
+            <a href="#" class="btn btn-primary">Sign up</a>
+        </div>
+    </div>
+
+    <main class="flex-grow-1 d-flex align-items-center justify-content-center">
+        <div class="text-center">
+
+            <h1 class="mb-5">Bienvenid@</h1>
+
+            <div class="d-flex gap-5 justify-content-center">
+                <a href="#" class="btn btn-success btn-lg px-5 py-4 fs-4">
+                    Single Player
+                </a>
+
+                <a href="#" class="btn btn-warning btn-lg px-5 py-4 fs-4">
+                    Multiplayer
+                </a>
+            </div>
+
         </div>
     </main>
 
     <th:block th:replace="~{fragments/footer.html :: footer}" />
-</body>
 
+</body>
 </html>
