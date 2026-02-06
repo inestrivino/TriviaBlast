@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html class="h-100" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <th:block th:replace="~{fragments/head :: header}" />
+    <title>Propuesta</title>
+    <link rel="stylesheet" th:href="@{/css/simple-datatables-10.css}" href="/css/simple-datatables-10.css"
+        type="text/css" />
+</head>
+
+<body>
+    <main>
+        <ul>
+            <li>
+                <a th:href="@{/crear_par_multijug}">
+                    Crear partida multijugador
+                </a>
+            </li>
+            <li>
+                <a th:href="@{/inicio_sin_sesion}">
+                    Inicio sin sesión iniciada
+                </a>
+            </li>
+            <li>
+                <a th:href="@{/insertar_codigo}">
+                    Insertar código para partida
+                </a>
+            </li>
+            <li>
+                <a th:href="@{/multip_victoryscr}">
+                    Pantalla de victoria multijugador
+                </a>
+            </li>
+            <li>
+                <a th:href="@{/par_multijugador}">
+                    Partida multijugador
+                </a>
+            </li>
+        </ul>
+    </main>
+</body>
+
+</html>
