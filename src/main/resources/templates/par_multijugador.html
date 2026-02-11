@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="es" class="h-100" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <th:block th:replace="~{fragments/head :: header}" />
+    <title>Partida</title>
+    <link rel="stylesheet"
+          th:href="@{/css/simple-datatables-10.css}"
+          href="/css/simple-datatables-10.css"
+          type="text/css" />
+</head>
+
+<body class="h-100 d-flex flex-column">
+    <div class="container-fluid p-3">
+        <button class="btn btn-danger">Salir</button>
+    </div>
+
+    <main class="flex-grow-1 container-fluid">
+        <div class="row h-100 g-3">
+
+            <div class="col-12 col-md-9">
+                <div class="h-100 border rounded d-flex align-items-center justify-content-center p-3">
+                    <h2>Tablero</h2>
+                </div>
+            </div>
+
+            <div class="col-12 col-md-3">
+                <div class="border rounded p-3 h-100">
+                    <h4 class="mb-3">Jugadores</h4>
+                    <ul class="list-group">
+                        <li class="list-group-item">Jugador 1</li>
+                        <li class="list-group-item">Jugador 2</li>
+                        <li class="list-group-item">Jugador 3</li>
+                    </ul>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+</body>
+</html>

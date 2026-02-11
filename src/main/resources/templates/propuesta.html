@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html class="h-100" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <th:block th:replace="~{fragments/head :: header}" />
+    <title>Propuesta</title>
+    <link rel="stylesheet" th:href="@{/css/simple-datatables-10.css}" href="/css/simple-datatables-10.css"
+        type="text/css" />
+</head>
+
+<body class="d-flex flex-column h-100">
+
+    <main class="flex-shrink-0">
+        <div class="container py-5">
+
+            <div class="mb-4 text-center">
+                <h1 class="display-5 fw-bold">Propuesta de TriviaBlast</h1>
+                <div class="row justify-content-center mt-3">
+                    <div class="col-auto">
+                        <a th:href="@{/autores}" class="btn btn-outline-primary">
+                            Autoras
+                        </a>
+                    </div>
+                    <div class="col-auto">
+                        <a th:href="@{/vistas}" class="btn btn-outline-secondary">
+                            Vistas
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <section class="mb-5">
+                <p class="lead">
+                    TriviaBlast es un juego de preguntas y respuestas en línea que permite a los usuarios jugar
+                    de forma individual o en salas multijugador (hasta 8 jugadores).
+                </p>
+                <p>
+                    Los jugadores pueden practicar y ganar puntos en partidas individuales, o competir en un
+                    tablero clásico con categorías por colores en salas privadas. El juego utiliza preguntas
+                    de la API pública Open Trivia Database (OpenTDB), que ofrece una amplia variedad de categorías
+                    y niveles de dificultad.
+                </p>
+            </section>
+            <section class="mb-5">
+                <h2 class="mb-3">Roles y permisos de usuario</h2>
+                <ol class="ps-3">
+                    <li class="mb-2">
+                        <strong>Jugador:</strong> puede gestionar su cuenta, jugar partidas individuales o
+                        multijugador y visualizar el leaderboard.
+                    </li>
+                    <li>
+                        <strong>Administrador:</strong> puede ocultar, editar, borrar o restaurar la visibilidad
+                        de usuarios mediante el uso de un captcha.
+                    </li>
+                </ol>
+            </section>
+            <section class="mb-5">
+                <h2 class="mb-3">Modalidades de juego</h2>
+                <ol class="ps-3">
+                    <li class="mb-3">
+                        <strong>Partida individual:</strong> el jugador configura la partida (número de preguntas,
+                        categoría y dificultad) y juega con un límite de tiempo. La puntuación depende de la
+                        dificultad y la rapidez al responder.
+                    </li>
+                    <li>
+                        <strong>Partida multijugador:</strong> el anfitrión crea una sala privada con un código
+                        de invitación. La partida se desarrolla en un tablero por turnos y gana el primer jugador
+                        que complete correctamente todas las categorías.
+                    </li>
+                </ol>
+            </section>
+            <section class="mb-5">
+                <h2 class="mb-3">Sistema de puntos y leaderboard</h2>
+                <p>
+                    Los puntos se obtienen según el tipo de partida y se reflejan en el leaderboard, visible solo
+                    para usuarios registrados. Los jugadores aparecen ordenados de mayor a menor puntuación.
+                </p>
+                <p>
+                    Los administradores pueden ocultar jugadores del leaderboard. Las categorías y niveles de
+                    dificultad están definidos por la Open Trivia Database.
+                </p>
+            </section>
+            <section>
+                <h2 class="mb-3">Diagrama de flujo resumido</h2>
+                <ul class="ps-3">
+                    <li>Registro o inicio de sesión</li>
+                    <li>Selección de modalidad de juego</li>
+                    <li>Desarrollo de la partida</li>
+                    <li>Cálculo de puntos y actualización del leaderboard</li>
+                </ul>
+            </section>
+        </div>
+    </main>
+
+</body>
+
+</html>
