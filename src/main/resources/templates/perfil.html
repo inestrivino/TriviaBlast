@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <title>Configuración del perfil</title>
+    <link rel="stylesheet" th:href="@{/css/bootstrap.min.css}">
+</head>
+
+<body class = "container mt-5">
+
+<h2>Configuración del perfil</h2>
+
+<p><strong>Usuario:</strong> kitten02</p>
+<p><strong>Email:</strong> kitten0204@gmail.com</p>
+
+<h4>Cambiar contraseña</h4>
+
+<form id="passwordForm">
+    <div class="mb-3">
+        <label>Contraseña actual</label>
+        <input type="password" id="oldPassword" class="form-control">
+    </div>
+
+    <div class="mb-3">
+        <label>Nueva contraseña</label>
+        <input type="password" id="newPassword" class="form-control">
+    </div>
+
+    <label style="margin-top:8px;">
+        <input type="checkbox" id="togglePassword">
+        Mostrar contraseña
+    </label>
+
+    <br><br>
+
+    <button type="submit" class="btn btn-warning">
+        Cambiar contraseña
+    </button>
+</form>
+
+<script src="/js/perfil.js"></script>
+</body>
+</html>
