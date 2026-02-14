@@ -26,6 +26,10 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
 
 import jakarta.persistence.EntityManager;
 import jakarta.servlet.http.HttpServletRequest;
@@ -110,6 +114,18 @@ public class UserController {
     byte[] token = new byte[byteLength];
     secureRandom.nextBytes(token);
     return Base64.getUrlEncoder().withoutPadding().encodeToString(token); // base64 encoding
+  }
+
+  
+  @GetMapping("/profile")
+  public String profile(Model model) {
+
+    Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+    User user = (User) auth.getPrincipal();
+
+    model.addAttribute("user", user);
+
+    return "profile";
   }
 
   /**
@@ -324,4 +340,5 @@ public class UserController {
     messagingTemplate.convertAndSend("/user/" + u.getUsername() + "/queue/updates", json);
     return "{\"result\": \"message sent.\"}";
   }
+
 }

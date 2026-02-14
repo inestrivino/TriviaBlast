@@ -73,6 +73,8 @@ public class SecurityConfig {
 								"/par_multijugador",
 								"/multip_victoryscr")
 						.permitAll()
+						
+						.requestMatchers("/profile").authenticated()
 
 						.requestMatchers("/api/**").permitAll()
 

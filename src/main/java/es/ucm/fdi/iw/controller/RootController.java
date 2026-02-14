@@ -71,4 +71,9 @@ public class RootController {
     public String multipVictoryScr(Model model) {
         return "multip_victoryscr";
     }
+
+    @GetMapping("/profile")
+    public String profile(Model model) {
+        return "profile";
+    }
 }

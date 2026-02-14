@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="fragments/head :: head"></head>
+
+<body>
+
+<nav th:replace="fragments/nav :: nav"></nav>
+
+<div class="container mt-5">
+
+    <div class="card shadow p-4">
+
+        <div class="text-center">
+            <img class="rounded-circle mb-3"
+                 style="max-width:150px"
+                 th:src="@{/img/avatars/{img}(img=${user.avatar})}">
+        </div>
+
+        <h2 class="text-center" th:text="${user.username}"></h2>
+
+        <hr>
+
+        <p><strong>Nombre:</strong>
+            <span th:text="${user.firstName}"></span>
+            <span th:text="${user.lastName}"></span>
+        </p>
+
+        <p><strong>Puntos totales:</strong>
+            <span class="text-success" th:text="${user.totalPoints}"></span>
+        </p>
+
+        <p><strong>Color favorito:</strong>
+            <span th:text="${user.colorFavorito}"></span>
+        </p>
+
+    </div>
+
+</div>
+
+</body>
+</html>
