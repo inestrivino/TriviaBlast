@@ -64,22 +64,24 @@ public class SecurityConfig {
 
 						//vistas públicas
 						.requestMatchers(
-								"/propuesta",
-								"/autores",
-								"/vistas",
-								"/crear_par_multijug",
-								"/inicio_sin_sesion",
-								"/insertar_codigo",
-								"/par_multijugador",
-								"/multip_victoryscr")
+								"/proposal",
+								"/authors",
+								"/index",
+								"/join_game",
+								"/login",
+								"/multi_game_setup",
+								"/multi_game",
+								"/multi_victoryscr",
+								"/scoreboard",
+								"single_game",
+								"profile"
+							)
 						.permitAll()
-						
-						.requestMatchers("/profile").authenticated()
 
 						.requestMatchers("/api/**").permitAll()
 
 						.requestMatchers("/admin/**").hasRole("ADMIN")
-						.requestMatchers("/user/**").hasRole("USER")
+						//.requestMatchers("/user/**").hasRole("USER")
 
 						.anyRequest().authenticated())
 				.formLogin(formLogin -> formLogin

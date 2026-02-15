@@ -3,36 +3,39 @@
 
 <head>
     <th:block th:replace="~{fragments/head :: header}" />
-    <title>Resultados</title>
+    <title>Results</title>
     <link rel="stylesheet" th:href="@{/css/simple-datatables-10.css}" href="/css/simple-datatables-10.css"
         type="text/css" />
 </head>
 
 <body class="h-100 d-flex flex-column">
 
+    <header th:replace="fragments/nav :: nav"></header>
+
+
     <div class="container-fluid p-3">
-        <button class="btn btn-danger">Salir</button>
+        <button class="btn btn-danger">Exit</button>
     </div>
 
     <main class="flex-grow-1 d-flex align-items-center justify-content-center">
         <div class="container text-center">
 
-            <h1 class="mb-5"> Resultados </h1>
+            <h1 class="mb-5"> Results </h1>
 
             <div class="row justify-content-center">
                 <div class="col-md-6">
                     <ul class="list-group">
                         <li class="list-group-item d-flex justify-content-between">
-                            <span>Jugador 1</span>
-                            <strong>120 puntos</strong>
+                            <span>Player 1</span>
+                            <strong>120 points</strong>
                         </li>
                         <li class="list-group-item d-flex justify-content-between">
-                            <span>Jugador 2</span>
-                            <strong>95 puntos</strong>
+                            <span>Player 2</span>
+                            <strong>95 points</strong>
                         </li>
                         <li class="list-group-item d-flex justify-content-between">
-                            <span>Jugador 3</span>
-                            <strong>80 puntos</strong>
+                            <span>Player 3</span>
+                            <strong>80 points</strong>
                         </li>
                     </ul>
                 </div>
@@ -40,6 +43,8 @@
 
         </div>
     </main>
+
+    <th:block th:replace="~{fragments/footer.html :: footer}" />
 
 </body>
 

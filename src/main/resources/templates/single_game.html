@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en" class="h-100" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <th:block th:replace="~{fragments/head :: header}"></th:block>
+    <title>TriviaBlast - Single Player</title>
+</head>
+
+<body class="d-flex flex-column h-100">
+
+    <header th:replace="~{fragments/nav :: nav}"></header>
+
+    <main class="flex-grow-1 d-flex align-items-center justify-content-center">
+        <div class="card shadow p-4 w-100" style="max-width: 700px;">
+
+            <div id="question" class="fs-4 mb-4 text-center">Loading question...</div>
+
+            <div id="answers" class="d-grid gap-2 mb-3">
+                <!-- Answer buttons inserted dynamically -->
+            </div>
+
+            <div id="feedback" class="fw-bold text-center mb-3"></div>
+
+        </div>
+    </main>
+
+    <th:block th:replace="~{fragments/footer :: footer}"></th:block>
+
+    <script th:inline="javascript">
+        let questionData = /*[[${questionData}]]*/ {};
+
+        // Handle rate limit and other errors
+        if (questionData.response_code === 5) {
+            document.getElementById('question').textContent =
+                'API rate limit reached, wait a few seconds and reload';
+            document.getElementById('answers').innerHTML = '';
+        } else if (!questionData.results || questionData.results.length === 0) {
+            document.getElementById('question').textContent = 'No questions available.';
+            document.getElementById('answers').innerHTML = '';
+        } else {
+            // Normal question rendering
+            let correctAnswer = decodeHTML(questionData.results[0].correct_answer);
+
+            let answers = questionData.results[0].incorrect_answers.map(decodeHTML);
+            answers.push(correctAnswer);
+            answers.sort(() => Math.random() - 0.5);
+
+            document.getElementById('question').innerHTML = decodeHTML(questionData.results[0].question);
+
+            const answersDiv = document.getElementById('answers');
+            answersDiv.innerHTML = '';
+            answers.forEach(answer => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn btn-outline-primary';
+                btn.textContent = answer;
+                btn.onclick = () => checkAnswer(btn);
+                answersDiv.appendChild(btn);
+            });
+
+            function checkAnswer(button) {
+                const feedback = document.getElementById('feedback');
+
+                document.querySelectorAll('#answers button').forEach(btn => btn.disabled = true);
+
+                if (button.textContent === correctAnswer) {
+                    button.classList.replace('btn-outline-primary', 'btn-success');
+                    feedback.textContent = 'Correct!';
+                    feedback.classList.replace('text-danger', 'text-success');
+                } else {
+                    button.classList.replace('btn-outline-primary', 'btn-danger');
+                    feedback.textContent = 'Incorrect!';
+                    feedback.classList.replace('text-success', 'text-danger');
+
+                    // highlight correct answer
+                    document.querySelectorAll('#answers button').forEach(btn => {
+                        if (btn.textContent === correctAnswer) {
+                            btn.classList.replace('btn-outline-primary', 'btn-success');
+                        }
+                    });
+                }
+            }
+
+            function decodeHTML(html) {
+                const txt = document.createElement("textarea");
+                txt.innerHTML = html;
+                return txt.value;
+            }
+        }
+    </script>
+
+
+</body>
+
+</html>

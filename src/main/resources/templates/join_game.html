@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es" class="h-100" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <th:block th:replace="~{fragments/head :: header}"></th:block>
+    <title>Join a game</title>
+    <link rel="stylesheet" th:href="@{/css/simple-datatables-10.css}" href="/css/simple-datatables-10.css"
+        type="text/css" />
+</head>
+
+<body class="h-100">
+    <header th:replace="~{fragments/nav.html :: nav}"></header>
+
+    <main class="text-center h-100 w-100 d-flex flex-column align-items-center justify-content-center">
+        <div style="max-width: 400px;">
+            <h1 class="mb-4">Insert game code</h1>
+
+            <form class="d-flex flex-column gap-3" th:action="@{/join-game}" method="post">
+                <input type="text" class="form-control form-control-lg text-center" placeholder="Código de juego"
+                    maxlength="10" pattern="[A-Za-z0-9]{6,10}" name="gameCode" required>
+
+                <button type="submit" class="btn btn-primary btn-lg">
+                    Join Game
+                </button>
+            </form>
+        </div>
+    </main>
+
+    <th:block th:replace="~{fragments/footer.html :: footer}" />
+</body>
+
+</html>

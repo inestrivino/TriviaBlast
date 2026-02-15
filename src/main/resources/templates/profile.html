@@ -1,41 +1,62 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
-<head th:replace="fragments/head :: head"></head>
+<html lang="en" class="h-100" xmlns:th="http://www.thymeleaf.org">
 
-<body>
+<head>
+    <th:block th:replace="fragments/head :: header"/>
+    <title>User Profile</title>
+</head>
 
-<nav th:replace="fragments/nav :: nav"></nav>
+<body class="d-flex flex-column h-100">
 
-<div class="container mt-5">
+    <header th:replace="fragments/nav :: nav"></header>
 
-    <div class="card shadow p-4">
+    <main class="flex-shrink-0">
+        <!--TO DO: FILL DINAMICALLY-->
+        <div class="container mt-5">
+            <div class="row justify-content-center">
+                <div class="col-12 col-md-8 col-lg-6">
 
-        <div class="text-center">
-            <img class="rounded-circle mb-3"
-                 style="max-width:150px"
-                 th:src="@{/img/avatars/{img}(img=${user.avatar})}">
+                    <div class="card shadow p-4">
+
+                        <!-- Avatar -->
+                        <div class="text-center">
+                            <img class="rounded-circle mb-3" style="max-width:150px"
+                                 th:src="@{/img/Inés.png}" alt="User Avatar">
+                        </div>
+
+                        <!-- Username -->
+                        <h2 class="text-center mb-3">Username</h2>
+
+                        <hr>
+
+                        <!-- Total Points -->
+                        <p>
+                            <strong>Total Points:</strong>
+                            <span class="text-success">0</span>
+                        </p>
+
+                        <!-- ACTION BUTTONS -->
+                        <div class="d-grid gap-2">
+                            <!-- Logout -->
+                            <form th:action="@{/logout}" method="post">
+                                <button type="submit" class="btn btn-outline-secondary w-100">Log Out</button>
+                            </form>
+
+                            <!-- Delete Account -->
+                            <form th:action="@{/profile/delete}" method="post"
+                                  onsubmit="return confirm('Are you sure you want to delete your account? This action cannot be undone.');">
+                                <button type="submit" class="btn btn-danger w-100">Delete Account</button>
+                            </form>
+                        </div>
+
+                    </div>
+
+                </div>
+            </div>
         </div>
+    </main>
 
-        <h2 class="text-center" th:text="${user.username}"></h2>
-
-        <hr>
-
-        <p><strong>Nombre:</strong>
-            <span th:text="${user.firstName}"></span>
-            <span th:text="${user.lastName}"></span>
-        </p>
-
-        <p><strong>Puntos totales:</strong>
-            <span class="text-success" th:text="${user.totalPoints}"></span>
-        </p>
-
-        <p><strong>Color favorito:</strong>
-            <span th:text="${user.colorFavorito}"></span>
-        </p>
-
-    </div>
-
-</div>
+    <th:block th:replace="fragments/footer :: footer"/>
 
 </body>
 </html>

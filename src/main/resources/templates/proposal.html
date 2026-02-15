@@ -9,6 +9,7 @@
 </head>
 
 <body class="d-flex flex-column h-100">
+    <header th:replace="~{fragments/nav.html :: nav}"></header>
 
     <main class="flex-shrink-0">
         <div class="container py-5">
@@ -17,13 +18,8 @@
                 <h1 class="display-5 fw-bold">Propuesta de TriviaBlast</h1>
                 <div class="row justify-content-center mt-3">
                     <div class="col-auto">
-                        <a th:href="@{/autores}" class="btn btn-outline-primary">
+                        <a th:href="@{/authors}" class="btn btn-outline-primary">
                             Autoras
-                        </a>
-                    </div>
-                    <div class="col-auto">
-                        <a th:href="@{/vistas}" class="btn btn-outline-secondary">
-                            Vistas
                         </a>
                     </div>
                 </div>
@@ -91,6 +87,7 @@
             </section>
         </div>
     </main>
+    <th:block th:replace="~{fragments/footer.html :: footer}" />
 
 </body>
 

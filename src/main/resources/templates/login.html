@@ -3,33 +3,115 @@
 
 <head>
     <th:block th:replace="~{fragments/head :: header}" />
-    <title>IW: Login</title>
+    <title>Log In</title>
 </head>
 
 <body class="d-flex flex-column h-100">
-    <header th:replace="~{fragments/nav.html :: nav}"></header>
+<header th:replace="~{fragments/nav.html :: nav}"></header>
 
-    <main class="flex-shrink-0">
-        <div class="container">
-            <form class="form-signin" method="post" th:action="@{/login}">
-                <h2 class="form-signin-heading">Please sign in</h2>
-                <p th:if="${loginError != false}" class="error">
-                    Error en nombre de usuario o contraseña
+<main class="flex-shrink-0 d-flex align-items-center">
+    <div class="container">
+        <div class="auth-box">
+
+            <!-- LOGIN FORM -->
+            <form id="loginForm" method="post" th:action="@{/login}">
+                <h2 class="mb-4 text-center">Sign in</h2>
+
+                <p th:if="${loginError}" class="text-danger text-center">
+                    Invalid username or password
                 </p>
-                <p>
-                    <label for="username" class="visually-hidden">Username</label>
-                    <input type="text" id="username" name="username" class="form-control" placeholder="Username" required="required">
-                </p>
-                <p>
-                    <label for="password" class="visually-hidden">Password</label>
-                    <input type="password" id="password" name="password" class="form-control" placeholder="Password" required="required">
-                </p>
-                <button class="btn btn-lg btn-primary btn-block" type="submit">Sign in</button>
+
+                <div class="mb-3">
+                    <input type="text" name="username"
+                           class="form-control"
+                           placeholder="Username"
+                           required>
+                </div>
+
+                <div class="mb-3">
+                    <input type="password" name="password"
+                           class="form-control"
+                           placeholder="Password"
+                           required>
+                </div>
+
+                <button class="btn btn-primary w-100 mb-3" type="submit">
+                    Sign in
+                </button>
+
+                <div class="text-center">
+                    <small>
+                        Don't have an account?
+                        <a href="#" onclick="toggleForms(); return false;">
+                            Create Account
+                        </a>
+                    </small>
+                </div>
             </form>
+
+            <!-- REGISTER FORM -->
+            <form id="registerForm"
+                  method="post"
+                  th:action="@{/register}"
+                  style="display: none;">
+
+                <h2 class="mb-4 text-center">Create Account</h2>
+
+                <div class="mb-3">
+                    <input type="text" name="username"
+                           class="form-control"
+                           placeholder="Username"
+                           required>
+                </div>
+
+                <div class="mb-3">
+                    <input type="email" name="email"
+                           class="form-control"
+                           placeholder="Email"
+                           required>
+                </div>
+
+                <div class="mb-3">
+                    <input type="password" name="password"
+                           class="form-control"
+                           placeholder="Password"
+                           required>
+                </div>
+
+                <button class="btn btn-primary w-100 mb-3" type="submit">
+                    Create Account
+                </button>
+
+                <div class="text-center">
+                    <small>
+                        Already have an account?
+                        <a href="#" onclick="toggleForms(); return false;">
+                            Sign in
+                        </a>
+                    </small>
+                </div>
+            </form>
+
         </div>
-    </main>
+    </div>
+</main>
 
-    <th:block th:replace="~{fragments/footer.html :: footer}" />
+<th:block th:replace="~{fragments/footer.html :: footer}" />
+
+<script>
+    function toggleForms() {
+        const login = document.getElementById("loginForm");
+        const register = document.getElementById("registerForm");
+
+        if (login.style.display === "none") {
+            login.style.display = "block";
+            register.style.display = "none";
+        } else {
+            login.style.display = "none";
+            register.style.display = "block";
+        }
+    }
+</script>
+
 </body>
-
 </html>
