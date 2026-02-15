@@ -27,68 +27,10 @@
     <th:block th:replace="~{fragments/footer :: footer}"></th:block>
 
     <script th:inline="javascript">
-        let questionData = /*[[${questionData}]]*/ {};
-
-        // Handle rate limit and other errors
-        if (questionData.response_code === 5) {
-            document.getElementById('question').textContent =
-                'API rate limit reached, wait a few seconds and reload';
-            document.getElementById('answers').innerHTML = '';
-        } else if (!questionData.results || questionData.results.length === 0) {
-            document.getElementById('question').textContent = 'No questions available.';
-            document.getElementById('answers').innerHTML = '';
-        } else {
-            // Normal question rendering
-            let correctAnswer = decodeHTML(questionData.results[0].correct_answer);
-
-            let answers = questionData.results[0].incorrect_answers.map(decodeHTML);
-            answers.push(correctAnswer);
-            answers.sort(() => Math.random() - 0.5);
-
-            document.getElementById('question').innerHTML = decodeHTML(questionData.results[0].question);
-
-            const answersDiv = document.getElementById('answers');
-            answersDiv.innerHTML = '';
-            answers.forEach(answer => {
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.className = 'btn btn-outline-primary';
-                btn.textContent = answer;
-                btn.onclick = () => checkAnswer(btn);
-                answersDiv.appendChild(btn);
-            });
-
-            function checkAnswer(button) {
-                const feedback = document.getElementById('feedback');
-
-                document.querySelectorAll('#answers button').forEach(btn => btn.disabled = true);
-
-                if (button.textContent === correctAnswer) {
-                    button.classList.replace('btn-outline-primary', 'btn-success');
-                    feedback.textContent = 'Correct!';
-                    feedback.classList.replace('text-danger', 'text-success');
-                } else {
-                    button.classList.replace('btn-outline-primary', 'btn-danger');
-                    feedback.textContent = 'Incorrect!';
-                    feedback.classList.replace('text-success', 'text-danger');
-
-                    // highlight correct answer
-                    document.querySelectorAll('#answers button').forEach(btn => {
-                        if (btn.textContent === correctAnswer) {
-                            btn.classList.replace('btn-outline-primary', 'btn-success');
-                        }
-                    });
-                }
-            }
-
-            function decodeHTML(html) {
-                const txt = document.createElement("textarea");
-                txt.innerHTML = html;
-                return txt.value;
-            }
-        }
+        window.questionData = /*[[${questionData}]]*/ {};
     </script>
 
+    <script th:src="@{/js/triviablast.js}"></script>
 
 </body>
 

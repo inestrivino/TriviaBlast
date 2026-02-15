@@ -61,40 +61,32 @@
                         </li>
 
                         <!-- Log in -->
-                        <li class="nav-item mx-2">
-                            <a class="btn btn-outline-primary btn-sm" th:href="@{/login}" href="/login"
-                                sec:authorize="isAnonymous()">Login</a>
-                        </li>
-
-                        <!-- <th:block th:unless="${u}">
+                        <th:block th:unless="${u}">
                             <li class="nav-item mx-2">
-                                <a class="nav-link" th:href="@{/login}" href="/login">Login</a>
+                                <a class="btn btn-outline-primary btn-sm" th:href="@{/login}" href="/login"
+                                    sec:authorize="isAnonymous()">Login</a>
                             </li>
-                            </*
+                            <!--/*
                                 Esto es un comentario "thymeleaf" - no se verá en el HTML
                                 El bloque de "debug" sólo está activado si application.properties tiene debug a "true"
                                     (ver StartupConfig.java para ver cómo se lee de la configuración
                                     y luego se escribe a ${application.debug})
-                            */>
+                            */-->
                             <li class="nav-item debug align-self-center" th:if="${application.debug}">
                                 <form class="d-flex" th:action="@{/login}" method="post">
                                     <input type="hidden" name="username" value="a">
                                     <input type="hidden" name="password" value="aa">
-                                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
                                     <button type="submit" class="btn btn-outline-danger btn-sm">a</button>
                                 </form>
-
                             </li>
                             <li class="nav-item debug align-self-center" th:if="${application.debug}">
                                 <form class="d-flex" th:action="@{/login}" method="post">
-                                    <input type="hidden" name="username" value="a">
+                                    <input type="hidden" name="username" value="b">
                                     <input type="hidden" name="password" value="aa">
-                                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
-                                    <button type="submit" class="btn btn-outline-danger btn-sm">a</button>
+                                    <button type="submit" class="btn btn-outline-danger btn-sm">b</button>
                                 </form>
-
                             </li>
-                        </th:block> -->
+                        </th:block>
                     </ul>
                 </div>
             </div>

@@ -74,14 +74,13 @@ public class SecurityConfig {
 								"/multi_victoryscr",
 								"/scoreboard",
 								"single_game",
-								"profile"
-							)
+								"profile")
 						.permitAll()
 
 						.requestMatchers("/api/**").permitAll()
 
 						.requestMatchers("/admin/**").hasRole("ADMIN")
-						//.requestMatchers("/user/**").hasRole("USER")
+						.requestMatchers("/user/**").hasRole("USER")
 
 						.anyRequest().authenticated())
 				.formLogin(formLogin -> formLogin

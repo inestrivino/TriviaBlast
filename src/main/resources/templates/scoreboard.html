@@ -63,26 +63,6 @@
 
 </body>
 
-<script>
-    document.querySelectorAll('.toggle-btn').forEach(button => {
-        button.addEventListener('click', () => {
-            const tr = button.closest('tr');
-
-            // Toggle semi-transparent row
-            tr.style.opacity = tr.style.opacity === '0.5' ? '1' : '0.5';
-
-            // Toggle button text and style
-            if (button.textContent === 'Hide') {
-                button.textContent = 'Display';
-                button.classList.remove('btn-outline-danger');
-                button.classList.add('btn-success');
-            } else {
-                button.textContent = 'Hide';
-                button.classList.remove('btn-success');
-                button.classList.add('btn-outline-danger');
-            }
-        });
-    });
-</script>
+<script th:src="@{/js/triviablast.js}"></script>
 
 </html>
