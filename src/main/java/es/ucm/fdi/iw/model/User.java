@@ -45,8 +45,7 @@ public class User implements Transferable<User.Transfer> {
   @Column(nullable = false)
   private String password;
 
-  @Column(nullable = false)
-  private int totalPoints = 0;
+  private Integer totalPoints = 0;
 
   private String avatar = "default-pic.png";
 
