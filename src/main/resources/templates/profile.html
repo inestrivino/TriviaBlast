@@ -16,7 +16,102 @@
             <div class="row justify-content-center">
                 <div class="col-12 col-md-8 col-lg-6">
 
-                    <div class="card shadow p-4">
+                    <div class="card shadow p-4 position-relative">
+
+                        <!-- Modal Setting -->
+                        <button class="btn btn-secondary position-absolute top-0 end-0 m-3 d-flex align-items-center justify-content-center "
+                        data-bs-toggle="modal" 
+                        data-bs-target="#miModal">
+                            Edit
+                        <i class="bi bi-gear-fill"></i>
+                        </button>
+
+                        <div class="modal fade" id="miModal" tabindex="-1">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Setting</h5>
+                                    </div>
+
+                                    <div class="modal-body">
+                                        <!-- BOTONES -->
+                                        <div class="d-grid gap-2 mb-3">
+                                        <button class="btn btn-primary" onclick="showEditProfile()">
+                                            Edit Profile
+                                        </button>
+                                        <!-- Edit Profile -->
+                                        <div id="editProfileSection" class="d-none">
+                                        <input type="file" class="form-control" id="newProfileImage">
+                                        </div>
+
+                                        <button class="btn btn-primary" onclick="showEditName()">
+                                            Edit Name
+                                        </button>
+                                        <!-- Edit Name -->
+                                        <div id="editNameSection" class="d-none">
+                                        <input type="text" class="form-control" id="newName" placeholder="New Name">
+                                        </div>
+
+                                        <button class="btn btn-primary" onclick="showChangePassword()">
+                                            Change Password
+                                        </button>
+                                        <!-- Change Password -->
+                                        <div id="changePasswordSection" class="d-none">
+                                        <input type="password" class="form-control mb-2" id="currentPassword" placeholder="Current Password">
+                                        <input type="password" class="form-control" id="newPassword" placeholder="New Password">
+                                        <input type="password" class="form-control" id="repeatPass" placeholder="Repeat Password">
+                                        </div>
+
+                                        <button class="btn btn-primary" onclick="changeMode()">
+                                            Change Mode
+                                        </button>
+
+
+                                        </div>
+
+                                    </div>
+
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                            Cancel
+                                        </button>
+                                        <button type="button" class="btn btn-primary" onclick="guardarCambios()">
+                                            Accept
+                                        </button>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
+
+                        <script src="/js/bootstrap.bundle-5.3.3.js"></script>
+                        <script>
+
+                            // Mostrar secciones
+                            function showEditProfile() {
+                            document.getElementById("editProfileSection").classList.toggle("d-none");
+                            }
+
+                            function showEditName() {
+                            document.getElementById("editNameSection").classList.toggle("d-none");
+                            }
+
+                            function showChangePassword() {
+                            document.getElementById("changePasswordSection").classList.toggle("d-none");
+                            }
+
+                            // Cambiar modo oscuro/claro
+                            function changeMode() {
+                            
+                            }
+
+                            // Guardar cambios
+                            function saveChanges() {
+
+                            }
+                            </script>
+
 
                         <!-- Avatar -->
                         <div class="text-center">
