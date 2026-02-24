@@ -29,7 +29,7 @@ import java.util.List;
 })
 @Table(name = "IWUser")
 public class User implements Transferable<User.Transfer> {
-
+  
   public enum Role {
     USER, // normal users
     ADMIN, // admin users
@@ -44,15 +44,21 @@ public class User implements Transferable<User.Transfer> {
   private String username;
   @Column(nullable = false)
   private String password;
+  @Column(nullable=false)
+  private String email;
+  
+  public enum Visibility{
+    PUBLIC,
+    HIDDEN
+  }
+  @Enumerated(EnumType.STRING)
+  private Visibility estadoVisibilidad; 
+
+
 
   private Integer totalPoints = 0;
 
   private String avatar = "default-pic.png";
-
-  private String firstName;
-  private String lastName;
-
-  private String colorFavorito;
 
   private boolean enabled;
   private String roles; // split by ',' to separate roles
