@@ -3,6 +3,7 @@ package es.ucm.fdi.iw.model;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -51,7 +52,10 @@ public class Message implements Transferable<Message.Transfer> {
 	@ManyToOne
 	private Topic topic; // We consider this to be a game room
 
+	@Column(columnDefinition = "TEXT", nullable = false)
 	private String text;
+
+	@Column(nullable = false)
 	private LocalDateTime dateSent;
 
 	/**

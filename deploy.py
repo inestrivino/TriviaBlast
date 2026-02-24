@@ -120,7 +120,8 @@ def main(credentials_file, db_file_root, data_file_root):
                 f" - Visit https://{target_prefix}.{target_suffix} (after a minute or so) to access your site\n"
                 f" - To see progress/check logs, visit https://guacamole.{credentials['jumphost']} as `{target_prefix}` with password `{credentials['target_pass']}`\n"
                 f"   and open logs via  `tmux a -t iw`; disconnecting with Ctrl+b + d\n"
-                f" - If you need to kill the server, run `tmux kill-server`")
+                f" - If you need to kill the server, run `tmux kill-server`"
+                f" - Check the logs in `log.txt`, with `less log.txt` or (if starting up) `tail -f log.txt`")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=\

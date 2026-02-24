@@ -1,0 +1,6 @@
+package es.ucm.fdi.iw.model;
+
+public enum Category {
+    GENERAL, ENTERTAINMENT, SCIENCE, MYTHOLOGY, SPORTS, GEOGRAPHY, HISTORY, POLITICS, ART, CELEBRITIES, ANIMALS,
+    VEHICLES
+}
