@@ -18,22 +18,22 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 @NamedQueries({
-    @NamedQuery(name = "User.byUsername", query = "SELECT u FROM User u "
+    @NamedQuery(name = "Admin.byUsername", query = "SELECT u FROM Admin u "
         + "WHERE u.username = :username AND u.enabled = TRUE"),
-    @NamedQuery(name = "User.hasUsername", query = "SELECT COUNT(u) "
-        + "FROM User u "
+    @NamedQuery(name = "Admin.hasUsername", query = "SELECT COUNT(u) "
+        + "FROM Admin u "
         + "WHERE u.username = :username"),
-    @NamedQuery(name = "User.topics", query = "SELECT t.key "
+    @NamedQuery(name = "Admin.topics", query = "SELECT t.key "
         + "FROM Topic t JOIN t.members u "
         + "WHERE u.id = :id")
 })
-@Table(name = "IWUser")
-public class User implements Transferable<User.Transfer> {
-  //do we need the role?
+@Table(name = "IWAdmin")
+public class Admin implements Transferable<User.Transfer> {
+  /* 
   public enum Role {
     USER, // normal users
     ADMIN, // admin users
-  }
+  }*/
 
   @Id
   @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "gen")
@@ -47,21 +47,7 @@ public class User implements Transferable<User.Transfer> {
   @Column(nullable=false)
   private String email;
   
-  public enum Visibility{
-    PUBLIC,
-    HIDDEN
-  }
-  @Enumerated(EnumType.STRING)
-  private Visibility estadoVisibilidad; 
 
-
-
-  private Integer totalPoints = 0;
-
-  private String avatar = "default-pic.png";
-
-  private boolean enabled;
-  private String roles; // split by ',' to separate roles
 
   @OneToMany
   @JoinColumn(name = "sender_id")
@@ -78,10 +64,11 @@ public class User implements Transferable<User.Transfer> {
    * @param role to check
    * @return true iff this user has that role.
    */
+  /* 
   public boolean hasRole(Role role) {
     String roleName = role.name();
     return Arrays.asList(roles.split(",")).contains(roleName);
-  }
+  }*/
 
   @Getter
   @AllArgsConstructor
