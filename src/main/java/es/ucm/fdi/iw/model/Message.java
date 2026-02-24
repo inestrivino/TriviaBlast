@@ -25,52 +25,55 @@ import lombok.AllArgsConstructor;
  */
 @Entity
 @NamedQueries({
-	@NamedQuery(name="Message.countUnread",
-	query="SELECT COUNT(m) FROM Message m "
-			+ "WHERE m.recipient.id = :userId AND m.dateRead = null")
+		@NamedQuery(name = "Message.countUnread", query = "SELECT COUNT(m) FROM Message m "
+				+ "WHERE m.recipient.id = :userId AND m.dateRead = null")
 })
 @Data
 public class Message implements Transferable<Message.Transfer> {
-	
-	private static Logger log = LogManager.getLogger(Message.class);	
-	
-    @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "gen")
-    @SequenceGenerator(name = "gen", sequenceName = "gen")
+
+	private static Logger log = LogManager.getLogger(Message.class);
+
+	/*
+	 * SCHEMA:
+	 * - ID
+	 * - SENDER
+	 * - TOPIC (ROOM)
+	 * - TEXT
+	 * - DATASENT
+	 */
+
+	@Id
+	@GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "gen")
+	@SequenceGenerator(name = "gen", sequenceName = "gen")
 	private long id;
 	@ManyToOne
 	private User sender;
 	@ManyToOne
-	private User recipient;
-  @ManyToOne
-	private Topic topic;
-  
+	private Topic topic; // We consider this to be a game room
+
 	private String text;
-	
 	private LocalDateTime dateSent;
-	private LocalDateTime dateRead;
-	
+
 	/**
 	 * Objeto para persistir a/de JSON
+	 * 
 	 * @author mfreire
 	 */
-    @Getter
-    @AllArgsConstructor
+	@Getter
+	@AllArgsConstructor
 	public static class Transfer {
 		private String from;
 		private String to;
 		private String sent;
 		private String received;
-    private String topic;
+		private String topic;
 		private String text;
 		long id;
+
 		public Transfer(Message m) {
 			this.from = m.getSender().getUsername();
-			this.to = m.getRecipient() == null ? "null": m.getRecipient().getUsername();
-			this.topic = m.getTopic() == null ? "null": m.getTopic().getName();
+			this.topic = m.getTopic() == null ? "null" : m.getTopic().getName();
 			this.sent = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(m.getDateSent());
-			this.received = m.getDateRead() == null ?
-					null : DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(m.getDateRead());
 			this.text = m.getText();
 			this.id = m.getId();
 		}
@@ -79,5 +82,5 @@ public class Message implements Transferable<Message.Transfer> {
 	@Override
 	public Transfer toTransfer() {
 		return new Transfer(this);
-    }
+	}
 }
