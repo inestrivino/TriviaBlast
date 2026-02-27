@@ -28,7 +28,7 @@ import java.util.List;
         + "WHERE u.id = :id")
 })
 @Table(name = "IWAdmin")
-public class Admin implements Transferable<User.Transfer> {
+public class Admin implements Transferable<Admin.Transfer> {
   /* 
   public enum Role {
     USER, // normal users

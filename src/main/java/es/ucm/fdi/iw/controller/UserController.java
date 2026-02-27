@@ -183,8 +183,6 @@ public class UserController {
       }
     }
     target.setUsername(edited.getUsername());
-    target.setFirstName(edited.getFirstName());
-    target.setLastName(edited.getLastName());
 
     // update user session so that changes are persisted in the session, too
     if (requester.getId() == target.getId()) {
@@ -315,7 +313,7 @@ public class UserController {
 
     // construye mensaje, lo guarda en BD
     Message m = new Message();
-    m.setRecipient(u);
+    //m.setRecipient();
     m.setSender(sender);
     m.setDateSent(LocalDateTime.now());
     m.setText(text);

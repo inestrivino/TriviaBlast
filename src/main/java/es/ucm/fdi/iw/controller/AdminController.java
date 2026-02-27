@@ -109,8 +109,6 @@ public class AdminController {
             //UserController.generateRandomBase64Token(9)));
       u.setEnabled(true);
       u.setRoles(User.Role.USER.toString());
-      u.setFirstName(Lorem.nombreAlAzar());
-      u.setLastName(Lorem.apellidoAlAzar());
       entityManager.persist(u);
       if (i%2 == 0) {
         g1.getMembers().add(u);
