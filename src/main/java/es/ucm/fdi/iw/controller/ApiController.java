@@ -67,7 +67,7 @@ public class ApiController {
    */
   @GetMapping("/status/{message}")
   public Map<String, String> check(@PathVariable String message) {
-    return Map.of("coder", message);
+    return Map.of("code", message);
   }
 
   /**
@@ -76,12 +76,11 @@ public class ApiController {
    * @param message
    * @return {"code" = "<message>"}
    */
-  @GetMapping("/users/count")
-  public Map<String, Long> usersCount() {
+@GetMapping("/users/count")
+public Map<String, Long> usersCount() {
     return Map.of("count",
         (Long) entityManager.createQuery("SELECT COUNT(u) FROM User u").getSingleResult());
-  }
-
+}
 
   /**
    * Loads a file from the classpath. 
@@ -160,7 +159,6 @@ public class ApiController {
 
     // build message, save to BD
     Message m = new Message();
-    m.setRecipient(null); 
     m.setSender(sender);
     m.setTopic(target);
     m.setDateSent(LocalDateTime.now());
