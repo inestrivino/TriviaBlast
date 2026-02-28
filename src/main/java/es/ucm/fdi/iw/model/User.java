@@ -30,6 +30,7 @@ import java.util.List;
 @Table(name = "IWUser")
 public class User implements Transferable<User.Transfer> {
   //do we need the role?
+
   public enum Role {
     USER, // normal users
     ADMIN, // admin users
@@ -106,4 +107,16 @@ public class User implements Transferable<User.Transfer> {
   public String toString() {
     return toTransfer().toString();
   }
+
+
+  @OneToMany(mappedBy = "host")
+  private List<Game> partidasCreadas = new ArrayList<>();
+
+  @ManyToMany
+  @JoinTable(
+      name = "user_games",
+      joinColumns = @JoinColumn(name = "user_id"),
+      inverseJoinColumns = @JoinColumn(name = "game_id")
+  )
+  private List<Game> partidasJugadas = new ArrayList<>();
 }

@@ -160,7 +160,7 @@ public class ApiController {
 
     // build message, save to BD
     Message m = new Message();
-    //m.setRecipient(null); TO DO, usercontroller no funciona con setrecipient
+    m.setRecipient(null); 
     m.setSender(sender);
     m.setTopic(target);
     m.setDateSent(LocalDateTime.now());

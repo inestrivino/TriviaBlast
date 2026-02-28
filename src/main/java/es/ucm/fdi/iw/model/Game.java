@@ -1,6 +1,8 @@
 package es.ucm.fdi.iw.model;
 
+import java.util.ArrayList;
 import java.util.Set;
+import java.util.List;
 
 import jakarta.persistence.*;
 import lombok.Data;
@@ -43,4 +45,7 @@ public class Game {
     @ManyToOne
     @JoinColumn(name = "host_id", nullable = false)
     private User host;
+
+    @ManyToMany(mappedBy = "partidasJugadas")
+    private List<User> players = new ArrayList<>();
 }
