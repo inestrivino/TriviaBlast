@@ -45,7 +45,7 @@ public class User implements Transferable<User.Transfer> {
     @Column(nullable = false)
     private String password;
 
-    @Column(nullable = false)
+    @Column(nullable=false)
     private String email;
 
     public enum Visibility {
