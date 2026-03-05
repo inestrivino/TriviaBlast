@@ -23,9 +23,6 @@ import java.util.List;
     @NamedQuery(name = "User.hasUsername", query = "SELECT COUNT(u) "
         + "FROM User u "
         + "WHERE u.username = :username"),
-    @NamedQuery(name = "User.topics", query = "SELECT t.key "
-        + "FROM Topic t JOIN t.members u "
-        + "WHERE u.id = :id")
 })
 @Table(name = "IWUser")
 public class User implements Transferable<User.Transfer> {
@@ -52,22 +49,11 @@ public class User implements Transferable<User.Transfer> {
 
     private boolean enabled = true;
 
-
     private String roles = "USER";
 
 
-    @OneToMany
-    @JoinColumn(name = "sender_id")
+    @OneToMany(mappedBy = "sender")
     private List<Message> sent = new ArrayList<>();
-
-    @OneToMany
-    @JoinColumn(name = "recipient_id")
-    private List<Message> received = new ArrayList<>();
-
-
-    @ManyToMany(mappedBy = "members")
-    private List<Topic> groups = new ArrayList<>();
-
 
 
     // Games created by this user
@@ -96,16 +82,12 @@ public class User implements Transferable<User.Transfer> {
 
     @Override
     public Transfer toTransfer() {
-        StringBuilder gs = new StringBuilder();
-        for (Topic g : groups) {
-            gs.append(g.getName()).append(", ");
-        }
         return new Transfer(
             id,
             username,
-            received.size(),
+            0,
             sent.size(),
-            gs.toString()
+            ""
         );
     }
 

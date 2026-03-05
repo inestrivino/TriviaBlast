@@ -27,7 +27,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import es.ucm.fdi.iw.model.Topic;
+import es.ucm.fdi.iw.model.Game;
 import es.ucm.fdi.iw.model.Message;
 import es.ucm.fdi.iw.model.User;
 import io.karatelabs.js.Context;
@@ -130,16 +130,16 @@ public Map<String, Long> usersCount() {
   private SimpMessagingTemplate messagingTemplate;
 
   /**
-   * Posts a message to a topic.
+   * Posts a message to a game.
    * 
-   * @param topic of target user (source user is from ID)
+   * @param code of target game (source user is from ID)
    * @param o  JSON-ized message, similar to {"message": "text goes here"}
    * @throws JsonProcessingException
    */
-  @PostMapping("/topic/{name}")
+  @PostMapping("/game/{code}")
   @ResponseBody
   @Transactional
-  public Map<String,String> postMsg(@PathVariable String name,
+  public Map<String,String> postMsg(@PathVariable String code,
       @RequestBody JsonNode o, Model model, HttpSession session,
       HttpServletResponse response)
       throws JsonProcessingException {
@@ -147,11 +147,13 @@ public Map<String, Long> usersCount() {
     String text = o.get("message").asText();
     User sender = entityManager.find(
         User.class, ((User) session.getAttribute("u")).getId());
-    Topic target = entityManager.createNamedQuery("Topic.byKey", Topic.class)
-        .setParameter("key", name).getSingleResult();  
+    Game target = entityManager.createQuery(
+        "SELECT g FROM Game g WHERE g.code = :code", Game.class)
+        .setParameter("code", code)
+        .getSingleResult(); 
 
     // verify permissions
-    if (! sender.hasRole("ADMIN") && ! target.getMembers().contains(sender)) {
+    if (! sender.hasRole("ADMIN") && ! target.getPlayers().contains(sender)) {
       response.setStatus(HttpServletResponse.SC_FORBIDDEN);
       return Map.of("error", "user not in group");
     }
@@ -159,40 +161,42 @@ public Map<String, Long> usersCount() {
     // build message, save to BD
     Message m = new Message();
     m.setSender(sender);
-    m.setTopic(target);
+    m.setGame(target);
     m.setDateSent(LocalDateTime.now());
     m.setText(text);
     entityManager.persist(m);
     entityManager.flush(); // to get Id before commit
 
-    // send to topic & return
+    // send to game & return
     String json = new ObjectMapper().writeValueAsString(m.toTransfer());
-    log.info("Sending a message to  group {} with contents '{}'", target.getName(), json);
-    messagingTemplate.convertAndSend("/topic/" + name, json);
+    log.info("Sending a message to  game {} with contents '{}'", target.getCode(), json);
+    messagingTemplate.convertAndSend("/game/" + code, json);
     return Map.of("result", "message sent");
   }
 
     /**
-   * Posts a message to a topic.
+   * Posts a message to a game.
    * 
-   * @param topic of target user (source user is from ID)
+   * @param code of target game (source user is from ID)
    * @param o  JSON-ized message, similar to {"message": "text goes here"}
    * @throws JsonProcessingException
    */
-  @GetMapping("/topic/{name}")
+  @GetMapping("/game/{code}")
   @ResponseBody
   @Transactional
-  public Map<String,String> getMessages(@PathVariable String name, HttpSession session,
+  public Map<String,String> getMessages(@PathVariable String code, HttpSession session,
         HttpServletResponse response)
       throws JsonProcessingException {
 
       User requester = entityManager.find(
           User.class, ((User) session.getAttribute("u")).getId());
-      Topic target = entityManager.createNamedQuery("Topic.byKey", Topic.class)
-          .setParameter("key", name).getSingleResult();  
+      Game target = entityManager.createQuery(
+        "SELECT g FROM Game g WHERE g.code = :code", Game.class)
+        .setParameter("code", code)
+        .getSingleResult();  
   
       // verify permissions
-      if (! requester.hasRole("ADMIN") && ! target.getMembers().contains(requester)) {
+      if (! requester.hasRole("ADMIN") && ! target.getPlayers().contains(requester)) {
         response.setStatus(HttpServletResponse.SC_FORBIDDEN);
         return Map.of("error", "user not in group");
       } 

@@ -8,6 +8,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.NamedQueries;
 import jakarta.persistence.NamedQuery;
@@ -34,9 +35,10 @@ public class Message implements Transferable<Message.Transfer> {
 	 * SCHEMA:
 	 * - ID
 	 * - SENDER
-	 * - TOPIC (ROOM)
+	 * - GAME (chat room)
 	 * - TEXT
-	 * - DATASENT
+	 * - DATE_SENT
+	 * - ADMIN_ONLY (true -> only admins receive it)
 	 */
 
 	@Id
@@ -45,14 +47,18 @@ public class Message implements Transferable<Message.Transfer> {
 	private long id;
 	@ManyToOne
 	private User sender;
-	@ManyToOne
-	private Topic topic; // We consider this to be a game room
+	@ManyToOne(optional = false)
+	@JoinColumn(name = "game_id") // obligatorio
+	private Game game; // this serves as the "topic" of the message, i.e. the room where it was sent
 
 	@Column(columnDefinition = "TEXT", nullable = false)
 	private String text;
 
 	@Column(nullable = false)
-	private LocalDateTime dateSent;
+	private LocalDateTime dateSent = LocalDateTime.now();
+
+	@Column(nullable = false)
+	private boolean adminOnly = false; // if true, the message is addressed to the admins of the game
 
 	/**
 	 * Objeto para persistir a/de JSON
@@ -63,18 +69,18 @@ public class Message implements Transferable<Message.Transfer> {
 	@AllArgsConstructor
 	public static class Transfer {
 		private String from;
-		private String to;
 		private String sent;
-		private String received;
-		private String topic;
+		private String game;
 		private String text;
+		private boolean adminOnly;
 		long id;
 
 		public Transfer(Message m) {
 			this.from = m.getSender().getUsername();
-			this.topic = m.getTopic() == null ? "null" : m.getTopic().getName();
+			this.game = m.getGame() == null ? "null" : m.getGame().getCode();
 			this.sent = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(m.getDateSent());
 			this.text = m.getText();
+			this.adminOnly = m.isAdminOnly();
 			this.id = m.getId();
 		}
 	}

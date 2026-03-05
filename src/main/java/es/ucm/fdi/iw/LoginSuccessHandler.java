@@ -22,7 +22,6 @@ import org.springframework.stereotype.Component;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import es.ucm.fdi.iw.model.Topic;
 import es.ucm.fdi.iw.model.User;
 
 /**
@@ -89,12 +88,7 @@ public class LoginSuccessHandler implements AuthenticationSuccessHandler {
     }
     session.setAttribute("url", url);
     session.setAttribute("ws", ws);
-
-    // add subscribed topics from groups
-    List<String> topics = entityManager.createNamedQuery("User.topics", String.class)
-        .setParameter("id", u.getId())
-        .getResultList();
-    session.setAttribute("topics", String.join(",", topics));
+    session.setAttribute("topics", "");
 
     // redirects to 'admin' or 'user/{id}', depending on the user
     String nextUrl = u.hasRole("ADMIN") ? "admin/" : "user/" + u.getId();

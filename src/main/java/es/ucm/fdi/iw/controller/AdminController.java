@@ -17,7 +17,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import es.ucm.fdi.iw.model.Topic;
+import es.ucm.fdi.iw.model.Game;
+import es.ucm.fdi.iw.model.Player;
 import es.ucm.fdi.iw.model.Lorem;
 import es.ucm.fdi.iw.model.Message;
 import es.ucm.fdi.iw.model.Transferable;
@@ -91,13 +92,20 @@ public class AdminController {
   public String populate(Model model) {
 
     // create some groups
-    Topic g1 = new Topic();
-    g1.setName("g1");
-    g1.setKey(UserController.generateRandomBase64Token(6));
+    Game g1 = new Game();
+    g1.setCode(UserController.generateRandomBase64Token(6));
+    g1.setDifficulty("easy");
+    g1.setNumQuestions(10);
+    g1.setNumPlayers(0);
+    g1.setGameState("waiting");
     entityManager.persist(g1);
-    Topic g2 = new Topic();
-    g2.setName("g2");
-    g2.setKey(UserController.generateRandomBase64Token(6));
+
+    Game g2 = new Game();
+    g2.setCode(UserController.generateRandomBase64Token(6));
+    g2.setDifficulty("easy");
+    g2.setNumQuestions(10);
+    g2.setNumPlayers(0);
+    g2.setGameState("waiting");
     entityManager.persist(g2);
 
     // create some users & assign to groups
@@ -111,11 +119,18 @@ public class AdminController {
       u.setRoles("USER");
       entityManager.persist(u);
       if (i%2 == 0) {
-        g1.getMembers().add(u);
-        // u.getTopics().add(g1); NO FUNCIONA: propietario es g, no u
+          Player p = new Player();
+          p.setUser(u);
+          p.setGame(g1);
+          p.setPoints(0);
+          entityManager.persist(p);
       }
       if (i%3 == 0) {
-        g2.getMembers().add(u);
+          Player p = new Player();
+          p.setUser(u);
+          p.setGame(g2);
+          p.setPoints(0);
+          entityManager.persist(p);
       }
     }
     return "{\"admin\": \"populated\"}";

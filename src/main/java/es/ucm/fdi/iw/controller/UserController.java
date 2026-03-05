@@ -270,10 +270,21 @@ public class UserController {
   @ResponseBody // para indicar que no devuelve vista, sino un objeto (jsonizado)
   public List<Message.Transfer> retrieveMessages(HttpSession session) {
     long userId = ((User) session.getAttribute("u")).getId();
+    
+    List<Message> messages = entityManager
+        .createQuery("select m from Message m where m.sender.id = :id", Message.class)
+        .setParameter("id", userId)
+        .getResultList();
+
+    return messages.stream()
+        .map(Message::toTransfer)
+        .collect(Collectors.toList());
+    /** 
     User u = entityManager.find(User.class, userId);
     log.info("Generating message list for user {} ({} messages)",
         u.getUsername(), u.getReceived().size());
     return u.getReceived().stream().map(Transferable::toTransfer).collect(Collectors.toList());
+    **/
   }
 
   /**

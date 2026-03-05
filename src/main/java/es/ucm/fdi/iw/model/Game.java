@@ -45,4 +45,7 @@ public class Game {
     @OneToMany(mappedBy = "game")
     private List<Player> players = new ArrayList<>();
 
+    @OneToMany(mappedBy = "game", cascade = CascadeType.ALL, orphanRemoval = true) // los mensajes pertenecen completamente al juego, si se borra el juego se borran los mensajes
+    private List<Message> messages = new ArrayList<>();
+
 }
