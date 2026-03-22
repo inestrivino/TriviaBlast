@@ -198,25 +198,26 @@ public class UserController {
       throw new NoEsTuPerfilException();
     }
 
-    if (edited.getPassword() != null) {
+    if (edited.getPassword() != null && !edited.getPassword().isEmpty()) {
       if (!edited.getPassword().equals(pass2)) {
         log.warn("Passwords do not match - returning to user form");
         response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
         model.addAttribute("user", target);
-        return "user";
+        return "profile";
       } else {
         // save encoded version of password
         target.setPassword(encodePassword(edited.getPassword()));
       }
     }
     target.setUsername(edited.getUsername());
+    target.setEmail(edited.getEmail());
 
     // update user session so that changes are persisted in the session, too
     if (requester.getId() == target.getId()) {
       session.setAttribute("u", target);
     }
 
-    return "user";
+    return "redirect:/user/" + id;
   }
 
   /**
@@ -252,9 +253,8 @@ public class UserController {
    * @throws IOException
    */
   @PostMapping("{id}/pic")
-  @ResponseBody
   public String setPic(@RequestParam("photo") MultipartFile photo, @PathVariable long id,
-      HttpServletResponse response, HttpSession session, Model model) throws IOException {
+    HttpServletResponse response, HttpSession session, Model model) throws IOException {
 
     User target = entityManager.find(User.class, id);
     model.addAttribute("user", target);
@@ -268,6 +268,7 @@ public class UserController {
 
     log.info("Updating photo for user {}", id);
     File f = localData.getFile("user", "" + id + ".jpg");
+    
     if (photo.isEmpty()) {
       log.info("failed to upload photo: emtpy file?");
     } else {
@@ -280,7 +281,7 @@ public class UserController {
         log.warn("Error uploading " + id + " ", e);
       }
     }
-    return "{\"status\":\"photo uploaded correctly\"}";
+    return "redirect:/user/" + id;
   }
 
   @GetMapping("error")
@@ -375,6 +376,30 @@ public class UserController {
 
     messagingTemplate.convertAndSend("/user/" + u.getUsername() + "/queue/updates", json);
     return "{\"result\": \"message sent.\"}";
+  }
+
+
+  @PostMapping("/{id}/delete")
+  @Transactional
+  public String deleteUser(@PathVariable long id, HttpSession session) {
+
+      User requester = (User) session.getAttribute("u");
+      User target = entityManager.find(User.class, id);
+
+      if (requester.getId() != target.getId() &&
+          !requester.hasRole("ADMIN")) {
+          throw new NoEsTuPerfilException();
+      }
+
+      entityManager.remove(target);
+
+      // cerrar sesión si se borra a sí mismo
+      if (requester.getId() == id) {
+          session.invalidate();
+          return "redirect:/login";
+      }
+
+      return "redirect:/";
   }
 
 }

@@ -37,76 +37,48 @@
                                     </div>
 
                                     <div class="modal-body">
-                                        <!-- Different tabs for each change -->
-                                        <ul class="nav nav-tabs mb-3" id="settingsTab" role="tablist">
-                                            <li class="nav-item" role="presentation">
-                                                <button class="nav-link active" id="picture-tab" data-bs-toggle="tab"
-                                                    data-bs-target="#picture" type="button" role="tab">Picture</button>
-                                            </li>
-                                            <li class="nav-item" role="presentation">
-                                                <button class="nav-link" id="name-tab" data-bs-toggle="tab"
-                                                    data-bs-target="#name" type="button" role="tab">Name</button>
-                                            </li>
-                                            <li class="nav-item" role="presentation">
-                                                <button class="nav-link" id="password-tab" data-bs-toggle="tab"
-                                                    data-bs-target="#password" type="button"
-                                                    role="tab">Password</button>
-                                            </li>
-                                        </ul>
 
-                                        <!-- Tabs content -->
-                                        <div class="tab-content" id="settingsTabContent">
-                                            <!-- Form to edit the profile picture -->
-                                            <div class="tab-pane fade show active" id="picture" role="tabpanel"
-                                                aria-labelledby="picture-tab">
-                                                <form id="pictureForm">
-                                                    <div class="mb-3">
-                                                        <label for="newProfileImage" class="form-label">Profile
-                                                            Image</label>
-                                                        <input type="file" class="form-control" id="newProfileImage">
-                                                    </div>
-                                                    <button type="submit" class="btn btn-primary">Save Profile</button>
-                                                </form>
+                                        <form th:action="@{'/user/' + ${user.id}}" method="post">
+
+                                            <!-- CSRF -->
+                                            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+
+                                            <!-- USERNAME -->
+                                            <div class="mb-3">
+                                                <label class="form-label">Username</label>
+                                                <input type="text" class="form-control"
+                                                    name="username"
+                                                    th:value="${user.username}">
                                             </div>
 
-                                            <!-- Form to edit the profile name -->
-                                            <div class="tab-pane fade" id="name" role="tabpanel"
-                                                aria-labelledby="name-tab">
-                                                <form id="nameForm">
-                                                    <div class="mb-3">
-                                                        <label for="newName" class="form-label">New Name</label>
-                                                        <input type="text" class="form-control" id="newName"
-                                                            placeholder="New Name">
-                                                    </div>
-                                                    <button type="submit" class="btn btn-primary">Save Name</button>
-                                                </form>
+                                            <!-- EMAIL -->
+                                            <div class="mb-3">
+                                                <label class="form-label">Email</label>
+                                                <input type="email" class="form-control"
+                                                    name="email"
+                                                    th:value="${user.email}">
                                             </div>
 
-                                            <!-- Form to edit the password -->
-                                            <div class="tab-pane fade" id="password" role="tabpanel"
-                                                aria-labelledby="password-tab">
-                                                <form id="passwordForm">
-                                                    <div class="mb-3">
-                                                        <label for="currentPassword" class="form-label">Current
-                                                            Password</label>
-                                                        <input type="password" class="form-control" id="currentPassword"
-                                                            placeholder="Current Password">
-                                                    </div>
-                                                    <div class="mb-3">
-                                                        <label for="newPassword" class="form-label">New Password</label>
-                                                        <input type="password" class="form-control" id="newPassword"
-                                                            placeholder="New Password">
-                                                    </div>
-                                                    <div class="mb-3">
-                                                        <label for="repeatPass" class="form-label">Repeat
-                                                            Password</label>
-                                                        <input type="password" class="form-control" id="repeatPass"
-                                                            placeholder="Repeat Password">
-                                                    </div>
-                                                    <button type="submit" class="btn btn-primary">Save Password</button>
-                                                </form>
+                                            <!-- PASSWORD -->
+                                            <div class="mb-3">
+                                                <label class="form-label">New Password</label>
+                                                <input type="password" class="form-control"
+                                                    name="password"
+                                                    placeholder="New password">
                                             </div>
-                                        </div>
+
+                                            <!-- REPEAT PASSWORD -->
+                                            <div class="mb-3">
+                                                <label class="form-label">Repeat Password</label>
+                                                <input type="password" class="form-control"
+                                                    name="pass2"
+                                                    placeholder="Repeat password">
+                                            </div>
+
+                                            <button type="submit" class="btn btn-primary w-100">
+                                                Save changes
+                                            </button>
+                                        </form>
                                     </div>
 
                                     <div class="modal-footer">
@@ -120,9 +92,24 @@
 
                         <!-- Profile picture -->
                         <div class="text-center">
-                            <img class="rounded-circle mb-3" style="max-width:150px" th:src="@{/img/Inés.png}"
+                            <img class="rounded-circle mb-3" style="max-width:150px" th:src="@{'/user/' + ${user.id} + '/pic'}"
                                 alt="User Avatar">
                         </div>
+                        
+                        <form th:action="@{'/user/' + ${user.id} + '/pic'}"
+                            method="post"
+                            enctype="multipart/form-data"
+                            class="mb-3">
+
+                            <!-- CSRF -->
+                            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+
+                            <input type="file" name="photo" class="form-control mb-2">
+
+                            <button type="submit" class="btn btn-primary w-100">
+                                Change profile picture
+                            </button>
+                        </form>
 
                         <!-- Username -->
                         <h2 class="text-center mb-3"  th:text="${user.username}">Username</h2>
@@ -143,8 +130,9 @@
                             </form>
 
                             <!-- Delete Account -->
-                            <form th:action="@{/profile/delete}" method="post"
+                            <form th:action="@{'/user/' + ${user.id} + '/delete'}" method="post"
                                 onsubmit="return confirm('Are you sure you want to delete your account? This action cannot be undone.');">
+                                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
                                 <button type="submit" class="btn btn-danger w-100">Delete Account</button>
                             </form>
                         </div>
