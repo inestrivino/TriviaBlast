@@ -73,7 +73,7 @@ public class UserController {
 
   @ModelAttribute
   public void populateModel(HttpSession session, Model model) {
-    for (String name : new String[] { "u", "url", "ws", "topics"}) {
+    for (String name : new String[] { "u", "url", "ws", "topics" }) {
       model.addAttribute(name, session.getAttribute(name));
     }
   }
@@ -115,7 +115,6 @@ public class UserController {
     return Base64.getUrlEncoder().withoutPadding().encodeToString(token); // base64 encoding
   }
 
-  
   @GetMapping("/profile")
   public String profile(Model model) {
 
@@ -137,7 +136,7 @@ public class UserController {
     return "profile";
   }
 
-    /**
+  /**
    * Alter or create a user
    */
   @PostMapping("/register")
@@ -148,21 +147,20 @@ public class UserController {
       @RequestParam(required = false) String pass2,
       Model model, HttpSession session) throws IOException {
 
-      User target=new User();
-      if (!edited.getPassword().equals(pass2)) {
-        log.warn("Passwords do not match - returning to user form");
-        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-        return "register";
-      }
-        // save encoded version of password
-      target.setPassword(encodePassword(edited.getPassword()));
-      target.setUsername(edited.getUsername());
-      target.setEmail(edited.getEmail());
-      target.setRoles("USER");
+    User target = new User();
+    if (!edited.getPassword().equals(pass2)) {
+      log.warn("Passwords do not match - returning to user form");
+      response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+      return "register";
+    }
+    // save encoded version of password
+    target.setPassword(encodePassword(edited.getPassword()));
+    target.setUsername(edited.getUsername());
+    target.setEmail(edited.getEmail());
+    target.setRoles("USER");
 
-
-      entityManager.persist(target);
-      return "login";
+    entityManager.persist(target);
+    return "login";
   }
 
   /**
@@ -175,18 +173,18 @@ public class UserController {
       @PathVariable long id,
       @ModelAttribute User edited,
       @RequestParam(required = false) String pass2,
+      @RequestParam(required = false) String formType,
       Model model, HttpSession session) throws IOException {
 
     User requester = (User) session.getAttribute("u");
     User target = null;
     if (id == -1 && requester.hasRole("ADMIN")) {
-      // create new user with random password
       target = new User();
       target.setPassword(encodePassword(generateRandomBase64Token(12)));
       target.setEnabled(true);
       entityManager.persist(target);
-      entityManager.flush(); // forces DB to add user & assign valid id
-      id = target.getId(); // retrieve assigned id from DB
+      entityManager.flush();
+      id = target.getId();
     }
 
     // retrieve requested user
@@ -198,19 +196,55 @@ public class UserController {
       throw new NoEsTuPerfilException();
     }
 
-    if (edited.getPassword() != null && !edited.getPassword().isEmpty()) {
-      if (!edited.getPassword().equals(pass2)) {
-        log.warn("Passwords do not match - returning to user form");
-        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-        model.addAttribute("user", target);
-        return "profile";
-      } else {
-        // save encoded version of password
+    /*
+     * if (edited.getPassword() != null && !edited.getPassword().isEmpty()) {
+     * if (!edited.getPassword().equals(pass2)) {
+     * log.warn("Passwords do not match - returning to user form");
+     * response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+     * model.addAttribute("user", target);
+     * return "profile";
+     * } else {
+     * // save encoded version of password
+     * target.setPassword(encodePassword(edited.getPassword()));
+     * }
+     * }
+     * target.setUsername(edited.getUsername());
+     * target.setEmail(edited.getEmail());
+     */
+
+    if ("password".equals(formType)) {
+      if (edited.getPassword() != null && !edited.getPassword().isEmpty()) {
+
+        if (!edited.getPassword().equals(pass2)) {
+          log.warn("Passwords do not match - returning to profile");
+
+          response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+          model.addAttribute("error", "password_mismatch");
+          model.addAttribute("openTab", "password");
+
+          return "profile";
+        }
+
         target.setPassword(encodePassword(edited.getPassword()));
       }
+
+    } else if ("userNameEmail".equals(formType)) {
+
+      if (edited.getUsername() != null && !edited.getUsername().isEmpty()) {
+        target.setUsername(edited.getUsername());
+      }
+
+      if (edited.getEmail() != null && !edited.getEmail().isEmpty()) {
+        target.setEmail(edited.getEmail());
+      }
+
+    } else if ("avatar".equals(formType)) {
+
+      log.info("Avatar update should be handled in /pic endpoint");
+
+    } else {
+      log.warn("Unknown formType or null - no changes applied");
     }
-    target.setUsername(edited.getUsername());
-    target.setEmail(edited.getEmail());
 
     // update user session so that changes are persisted in the session, too
     if (requester.getId() == target.getId()) {
@@ -254,7 +288,7 @@ public class UserController {
    */
   @PostMapping("{id}/pic")
   public String setPic(@RequestParam("photo") MultipartFile photo, @PathVariable long id,
-    HttpServletResponse response, HttpSession session, Model model) throws IOException {
+      HttpServletResponse response, HttpSession session, Model model) throws IOException {
 
     User target = entityManager.find(User.class, id);
     model.addAttribute("user", target);
@@ -268,7 +302,7 @@ public class UserController {
 
     log.info("Updating photo for user {}", id);
     File f = localData.getFile("user", "" + id + ".jpg");
-    
+
     if (photo.isEmpty()) {
       log.info("failed to upload photo: emtpy file?");
     } else {
@@ -299,7 +333,7 @@ public class UserController {
   @ResponseBody // para indicar que no devuelve vista, sino un objeto (jsonizado)
   public List<Message.Transfer> retrieveMessages(HttpSession session) {
     long userId = ((User) session.getAttribute("u")).getId();
-    
+
     List<Message> messages = entityManager
         .createQuery("select m from Message m where m.sender.id = :id", Message.class)
         .setParameter("id", userId)
@@ -308,12 +342,13 @@ public class UserController {
     return messages.stream()
         .map(Message::toTransfer)
         .collect(Collectors.toList());
-    /** 
-    User u = entityManager.find(User.class, userId);
-    log.info("Generating message list for user {} ({} messages)",
-        u.getUsername(), u.getReceived().size());
-    return u.getReceived().stream().map(Transferable::toTransfer).collect(Collectors.toList());
-    **/
+    /**
+     * User u = entityManager.find(User.class, userId);
+     * log.info("Generating message list for user {} ({} messages)",
+     * u.getUsername(), u.getReceived().size());
+     * return
+     * u.getReceived().stream().map(Transferable::toTransfer).collect(Collectors.toList());
+     **/
   }
 
   /**
@@ -352,7 +387,7 @@ public class UserController {
 
     // construye mensaje, lo guarda en BD
     Message m = new Message();
-    //m.setRecipient();
+    // m.setRecipient();
     m.setSender(sender);
     m.setDateSent(LocalDateTime.now());
     m.setText(text);
@@ -378,28 +413,27 @@ public class UserController {
     return "{\"result\": \"message sent.\"}";
   }
 
-
   @PostMapping("/{id}/delete")
   @Transactional
   public String deleteUser(@PathVariable long id, HttpSession session) {
 
-      User requester = (User) session.getAttribute("u");
-      User target = entityManager.find(User.class, id);
+    User requester = (User) session.getAttribute("u");
+    User target = entityManager.find(User.class, id);
 
-      if (requester.getId() != target.getId() &&
-          !requester.hasRole("ADMIN")) {
-          throw new NoEsTuPerfilException();
-      }
+    if (requester.getId() != target.getId() &&
+        !requester.hasRole("ADMIN")) {
+      throw new NoEsTuPerfilException();
+    }
 
-      entityManager.remove(target);
+    entityManager.remove(target);
 
-      // cerrar sesión si se borra a sí mismo
-      if (requester.getId() == id) {
-          session.invalidate();
-          return "redirect:/login";
-      }
+    // cerrar sesión si se borra a sí mismo
+    if (requester.getId() == id) {
+      session.invalidate();
+      return "redirect:/login";
+    }
 
-      return "redirect:/";
+    return "redirect:/";
   }
 
 }
