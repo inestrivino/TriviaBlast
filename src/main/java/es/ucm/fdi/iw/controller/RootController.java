@@ -41,11 +41,6 @@ public class RootController {
         return "login";
     }
 
-    @GetMapping("/proposal")
-    public String proposal(Model model) {
-        return "proposal";
-    }
-
     @GetMapping("/authors")
     public String authors(Model model) {
         return "authors";

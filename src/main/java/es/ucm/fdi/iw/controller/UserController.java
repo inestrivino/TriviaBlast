@@ -116,13 +116,12 @@ public class UserController {
   }
 
   @GetMapping("/profile")
-  public String profile(Model model) {
-
-    Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-    User user = (User) auth.getPrincipal();
-
+  public String profile(Model model, HttpSession session) {
+    User user = (User) session.getAttribute("u");
+    if (user == null) {
+      return "redirect:/login";
+    }
     model.addAttribute("user", user);
-
     return "profile";
   }
 

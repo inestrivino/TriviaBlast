@@ -73,8 +73,7 @@ public class SecurityConfig {
 								"/multi_game_setup",
 								"/multi_game",
 								"/multi_victoryscr",
-								"/scoreboard",
-								"profile")
+								"/scoreboard")
 						.permitAll()
 
 						.requestMatchers("/api/**").permitAll()
