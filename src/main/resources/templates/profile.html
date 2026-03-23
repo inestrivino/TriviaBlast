@@ -101,25 +101,39 @@
                                             <!-- PASSWORD -->
                                             <div class="tab-pane fade" id="password">
                                                 <form th:action="@{'/user/' + ${user.id}}" method="post">
-
                                                     <input type="hidden" th:name="${_csrf.parameterName}"
                                                         th:value="${_csrf.token}" />
                                                     <input type="hidden" name="formType" value="password">
 
+                                                    <!-- CURRENT PASSWORD -->
+                                                    <div class="mb-3">
+                                                        <label class="form-label">Current Password</label>
+                                                        <input type="password" class="form-control"
+                                                            name="currentPassword" required>
+                                                    </div>
 
+                                                    <!-- NEW PASSWORD -->
                                                     <div class="mb-3">
                                                         <label class="form-label">New Password</label>
-                                                        <input type="password" class="form-control" name="password">
+                                                        <input type="password" class="form-control" name="password"
+                                                            required>
                                                     </div>
 
+                                                    <!-- REPEAT NEW PASSWORD -->
                                                     <div class="mb-3">
-                                                        <label class="form-label">Repeat Password</label>
-                                                        <input type="password" class="form-control" name="pass2">
+                                                        <label class="form-label">Repeat New Password</label>
+                                                        <input type="password" class="form-control" name="pass2"
+                                                            required>
                                                     </div>
 
+                                                    <!-- Mensajes de error -->
                                                     <div th:if="${error == 'password_mismatch'}"
                                                         class="alert alert-danger">
-                                                        Passwords do not match
+                                                        New passwords do not match.
+                                                    </div>
+                                                    <div th:if="${error == 'current_password_incorrect'}"
+                                                        class="alert alert-danger">
+                                                        Current password is incorrect.
                                                     </div>
 
                                                     <button type="submit" class="btn btn-primary w-100">

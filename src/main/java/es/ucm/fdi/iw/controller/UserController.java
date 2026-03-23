@@ -25,10 +25,6 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
 
 import jakarta.persistence.EntityManager;
 import jakarta.servlet.http.HttpServletRequest;
@@ -173,6 +169,7 @@ public class UserController {
       @ModelAttribute User edited,
       @RequestParam(required = false) String pass2,
       @RequestParam(required = false) String formType,
+      @RequestParam(required = false) String currentPassword,
       Model model, HttpSession session) throws IOException {
 
     User requester = (User) session.getAttribute("u");
@@ -195,24 +192,14 @@ public class UserController {
       throw new NoEsTuPerfilException();
     }
 
-    /*
-     * if (edited.getPassword() != null && !edited.getPassword().isEmpty()) {
-     * if (!edited.getPassword().equals(pass2)) {
-     * log.warn("Passwords do not match - returning to user form");
-     * response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-     * model.addAttribute("user", target);
-     * return "profile";
-     * } else {
-     * // save encoded version of password
-     * target.setPassword(encodePassword(edited.getPassword()));
-     * }
-     * }
-     * target.setUsername(edited.getUsername());
-     * target.setEmail(edited.getEmail());
-     */
-
     if ("password".equals(formType)) {
       if (edited.getPassword() != null && !edited.getPassword().isEmpty()) {
+
+        if (!passwordEncoder.matches(currentPassword, target.getPassword())) {
+          model.addAttribute("error", "current_password_incorrect");
+          model.addAttribute("openTab", "password");
+          return "profile";
+        }
 
         if (!edited.getPassword().equals(pass2)) {
           log.warn("Passwords do not match - returning to profile");
