@@ -24,15 +24,20 @@
         <!-- Question Card -->
         <div id="gameCard" class="card shadow p-4 w-100 mb-3" style="max-width: 700px;">
             <div id="question" class="fs-4 mb-4 text-center">Loading question...</div>
+
             <div id="answers" class="d-grid gap-2 mb-3">
-                <!-- Answer buttons inserted dynamically -->
+                <!-- Buttons inserted by JS -->
             </div>
+
             <div id="feedback" class="fw-bold text-center mb-3"></div>
         </div>
 
         <!-- Next question button -->
-        <div id="nextContainer" class="w-100 d-flex justify-content-center mb-3 px-2 px-md-0" style="max-width: 700px;">
-            <button id="nextBtn" class="btn btn-success btn-lg px-4" disabled>Next Question</button>
+        <div id="nextContainer" class="w-100 d-flex justify-content-center mb-3 px-2 px-md-0"
+            style="max-width: 700px;">
+            <button id="nextBtn" class="btn btn-success btn-lg px-4" disabled>
+                Next Question
+            </button>
         </div>
 
     </main>
@@ -40,7 +45,7 @@
     <th:block th:replace="~{fragments/footer :: footer}"></th:block>
 
     <script th:inline="javascript">
-        window.questions = /*[[${questionData.results}]]*/[];
+        window.questions = /*[[${questions}]]*/ [];
     </script>
 
 </body>

@@ -1,61 +1,84 @@
 package es.ucm.fdi.iw.controller;
 
-import org.springframework.web.bind.annotation.*;
-import es.ucm.fdi.iw.model.*;
-import es.ucm.fdi.iw.repository.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
-@RestController
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.client.RestTemplate;
+
+import es.ucm.fdi.iw.controller.DTOs.AnswerReqDTO;
+import es.ucm.fdi.iw.controller.DTOs.AnswerResDTO;
+import es.ucm.fdi.iw.controller.DTOs.GameSetupDTO;
+import es.ucm.fdi.iw.controller.DTOs.QuestionDataPrivateDTO;
+import es.ucm.fdi.iw.controller.DTOs.QuestionDataPublicDTO;
+import jakarta.servlet.http.HttpSession;
+
+@Controller
 @RequestMapping("/game")
 public class GameController {
 
-    private final UserRepository userRepository;
-    private final GameRepository gameRepository;
-    private final PlayerRepository playerRepository;
+    @PostMapping("/start_single_game")
+    public String startGame(@ModelAttribute GameSetupDTO setup,
+            Model model,
+            HttpSession session) {
 
-    public GameController(GameRepository gameRepository, PlayerRepository playerRepository, UserRepository userRepository) {
-    this.gameRepository = gameRepository;
-    this.playerRepository = playerRepository;
-    this.userRepository = userRepository;
+        String url = "https://opentdb.com/api.php?amount=" + setup.getQuestionCount();
+        if (setup.getCategory() != null && !setup.getCategory().isEmpty()) {
+            url += "&category=" + setup.getCategory();
+        }
+        if (setup.getDifficulty() != null && !setup.getDifficulty().isEmpty()) {
+            url += "&difficulty=" + setup.getDifficulty().toLowerCase();
+        }
+
+        RestTemplate rest = new RestTemplate();
+        Map<String, Object> response = rest.getForObject(url, Map.class);
+
+        List<Map<String, Object>> results = (List<Map<String, Object>>) response.get("results");
+
+        List<QuestionDataPrivateDTO> fullQuestions = new ArrayList<>(); // full data stored in session
+        List<QuestionDataPublicDTO> publicQuestions = new ArrayList<>(); // safe version for frontend
+
+        int i = 0;
+        for (Map<String, Object> q : results) {
+            List<String> answers = new ArrayList<>();
+            String correct = (String) q.get("correct_answer");
+
+            answers.add(correct);
+            answers.addAll((List<String>) q.get("incorrect_answers"));
+            Collections.shuffle(answers);
+
+            fullQuestions.add(new QuestionDataPrivateDTO(i, (String) q.get("question"), answers, correct));
+            publicQuestions.add(new QuestionDataPublicDTO(i, (String) q.get("question"), answers));
+
+            i++;
+        }
+
+        session.setAttribute("questions", fullQuestions);
+        model.addAttribute("questions", publicQuestions);
+
+        return "single_game";
     }
 
-    @GetMapping("/create")
-    public String createGame(@RequestParam Long userId) {
+    @PostMapping("/answer")
+    @ResponseBody
+    public AnswerResDTO checkAnswer(@RequestBody AnswerReqDTO req, HttpSession session) {
+        List<QuestionDataPrivateDTO> questions = (List<QuestionDataPrivateDTO>) session.getAttribute("questions");
+        if (questions == null || req.getQuestionId() >= questions.size()) {
+            return new AnswerResDTO(false, null);
+        }
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        QuestionDataPrivateDTO q = questions.get(req.getQuestionId());
 
-        Game game = new Game();
-        game.setNumPlayers(1);
-        game.setGameState("WAITING");
+        boolean isCorrect = q.getCorrectAnswer().equals(req.getAnswer());
 
-        game.setNumQuestions(10);
-        game.setDifficulty("MEDIUM");
-        game.setHost(user);
-
-        gameRepository.save(game);
-
-        return game.getCode();
-    }
-
-    @GetMapping("/join")
-    public String joinGame(@RequestParam String code, @RequestParam Long userId) {
-
-        Game game = gameRepository.findByCode(code)
-                .orElseThrow(() -> new RuntimeException("Game not found"));
-
-        Player player = new Player();
-        User user = userRepository.findById(userId)
-        .orElseThrow(() -> new RuntimeException("User not found"));
-
-        player.setUser(user);
-        player.setGame(game);
-        player.setPoints(0);
-
-        playerRepository.save(player);
-
-        game.setNumPlayers(game.getNumPlayers() + 1);
-        gameRepository.save(game);
-
-        return "Joined!";
+        return new AnswerResDTO(isCorrect, q.getCorrectAnswer());
     }
 }

@@ -1,4 +1,4 @@
-package es.ucm.fdi.iw.controller;
+package es.ucm.fdi.iw.controller.DTOs;
 
 // THIS OBJECT IS USED AS A WAY FOR THE CONTROLLER TO HANDLE THE SETTINGS FOR A NEW GAME
 

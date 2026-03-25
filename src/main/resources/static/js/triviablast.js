@@ -129,39 +129,30 @@ document.addEventListener("DOMContentLoaded", () => {
     let score = 0;
 
     const statusEl = document.getElementById("gameStatus");
+    const nextBtn = document.getElementById("nextBtn");
 
     function updateStatus() {
         const total = window.questions.length;
-        const current = currentIndex + 1 > total ? total : currentIndex + 1;
-        statusEl.textContent = `${current}/${total} ${score} points`;
-    }
-
-    const nextBtn = document.getElementById("nextBtn");
-
-    function shuffle(array) {
-        return array.sort(() => Math.random() - 0.5);
+        statusEl.textContent = `${currentIndex + 1}/${total} ${score} points`;
     }
 
     function showQuestion(index) {
-        const questionData = window.questions[index];
-        const questionEl = document.getElementById("question");
+        const q = window.questions[index];
+
+        document.getElementById("question").innerHTML = q.question;
         const answersEl = document.getElementById("answers");
         const feedbackEl = document.getElementById("feedback");
 
-        questionEl.innerHTML = questionData.question;
         answersEl.innerHTML = "";
         feedbackEl.innerHTML = "";
         nextBtn.disabled = true;
 
-        const answers = shuffle([questionData.correct_answer, ...questionData.incorrect_answers]);
-
-        answers.forEach(answer => {
+        q.answers.forEach(answer => {
             const btn = document.createElement("button");
-            btn.type = "button";
             btn.className = "btn btn-outline-primary";
             btn.innerHTML = answer;
 
-            btn.addEventListener("click", () => handleAnswer(btn, questionData.correct_answer));
+            btn.onclick = () => sendAnswer(answer, q.id, btn);
 
             answersEl.appendChild(btn);
         });
@@ -169,58 +160,68 @@ document.addEventListener("DOMContentLoaded", () => {
         updateStatus();
     }
 
-    function handleAnswer(button, correctAnswer) {
-        const answersEl = document.getElementById("answers");
-        const feedbackEl = document.getElementById("feedback");
+    function sendAnswer(answer, questionId, clickedBtn) {
+        fetch("/game/answer", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                [config.csrf.header]: config.csrf.value
+            },
+            body: JSON.stringify({ questionId, answer })
+        })
+            .then(res => res.json()
+                .then(data => {
+                    console.log("Clicked:", answer);
+                    console.log("Server says correct:", data.correctAnswer);
 
-        Array.from(answersEl.children).forEach(btn => btn.disabled = true);
+                    const answersEl = document.getElementById("answers");
+                    const feedbackEl = document.getElementById("feedback");
 
-        if (button.innerHTML === correctAnswer) {
-            button.classList.replace("btn-outline-primary", "btn-success");
-            feedbackEl.textContent = "Correct!";
-            score += 10;
+                    Array.from(answersEl.children).forEach(btn => btn.disabled = true);
+                    const isCorrect = (data.correct === true || data.correct === 'true');
 
-            // TO DO CREATE ENDPOINT TO HANDLE ADDING POINTS TO THE USER
-            //fetch("/api/addPoints", {
-                //method: "POST",
-                //headers: { "Content-Type": "application/json" },
-                //body: JSON.stringify({ points: 10 })
-            //});
-        } else {
-            button.classList.replace("btn-outline-primary", "btn-danger");
-            feedbackEl.textContent = "Incorrect!";
-            Array.from(answersEl.children).forEach(btn => {
-                if (btn.innerHTML === correctAnswer) btn.classList.replace("btn-outline-primary", "btn-success");
-            });
-        }
+                    if (isCorrect) {
+                        clickedBtn.classList.replace("btn-outline-primary", "btn-success");
+                        feedbackEl.textContent = "Correct!";
+                        score += 10;
+                    } else {
+                        clickedBtn.classList.replace("btn-outline-primary", "btn-danger");
+                        feedbackEl.textContent = "Incorrect!";
 
-        nextBtn.disabled = false;
-        updateStatus();
+                        const correctAnswer = decodeHtml(data.correctAnswer).trim().toLowerCase();
+
+                        Array.from(answersEl.children).forEach(btn => {
+                            if (btn.textContent.trim().toLowerCase() === correctAnswer) {
+                                btn.classList.replace("btn-outline-primary", "btn-success");
+                            }
+                        });
+                    }
+
+                    nextBtn.disabled = false;
+                    updateStatus();
+                }));
     }
 
-    nextBtn.addEventListener("click", () => {
+    nextBtn.onclick = () => {
         currentIndex++;
         if (currentIndex < window.questions.length) {
             showQuestion(currentIndex);
         } else {
-            const gameCard = document.getElementById("gameCard");
-            gameCard.innerHTML = `<div class="text-center fs-4 fw-bold">Game Over!<br>Your Score: ${score} points</div>`;
+            document.getElementById("gameCard").innerHTML =
+                `<div class="text-center fs-4 fw-bold">
+                    Game Over!<br>Your Score: ${score} points
+                </div>`;
             nextBtn.hidden = true;
         }
-    });
+    };
 
-    if (window.questions.length > 0) {
-        showQuestion(currentIndex);
-    } else {
-        document.getElementById("question").textContent = "No questions available.";
-    }
-
+    showQuestion(currentIndex);
 });
 
 /* =========================
    HELPERS
 ========================= */
-function decodeHTML(html) {
+function decodeHtml(html) {
     const txt = document.createElement("textarea");
     txt.innerHTML = html;
     return txt.value;

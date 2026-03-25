@@ -15,6 +15,7 @@
                 socketUrl: "[[${ws}?:'']]", // empty is false, will result in no WS being opened
                 rootUrl: "[[${url}?:'']]",
                 csrf: {
+                    header: "[[${_csrf.headerName}]]",
                     name: "[[${_csrf.parameterName}]]",
                     value: "[[${_csrf.token}]]"
                 },
