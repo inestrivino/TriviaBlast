@@ -91,10 +91,12 @@ public class GameController {
             if (user != null) {
                 User managedUser = entityManager.find(User.class, user.getId());
 
-                managedUser.setTotalPoints(
-                        managedUser.getTotalPoints() + 10);
+                if (managedUser != null) {
+                    managedUser.setTotalPoints(
+                            (managedUser.getTotalPoints() == null ? 0 : managedUser.getTotalPoints()) + 10);
 
-                session.setAttribute("u", managedUser);
+                    session.setAttribute("u", managedUser);
+                }
             }
         }
 
