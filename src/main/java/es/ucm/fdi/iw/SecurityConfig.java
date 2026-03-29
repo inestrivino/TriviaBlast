@@ -62,8 +62,8 @@ public class SecurityConfig {
 						// recursos públicos
 						.requestMatchers("/css/**", "/js/**", "/img/**", "/", "/error").permitAll()
 
-						//vistas públicas
-						.requestMatchers(								
+						// vistas públicas
+						.requestMatchers(
 								"/user/register",
 								"/proposal",
 								"/authors",
@@ -72,8 +72,7 @@ public class SecurityConfig {
 								"/login",
 								"/multi_game_setup",
 								"/multi_game",
-								"/multi_victoryscr",
-								"/scoreboard")
+								"/multi_victoryscr")
 						.permitAll()
 
 						.requestMatchers("/api/**").permitAll()

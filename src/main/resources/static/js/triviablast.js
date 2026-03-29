@@ -92,30 +92,43 @@ function initBoard() {
 }
 
 /* =========================
-   TABLE ROW TOGGLE
+   SCOREBOARD
 ========================= */
 function initTableToggleButtons() {
-
     const buttons = document.querySelectorAll('.toggle-btn');
     if (!buttons.length) return;
 
     buttons.forEach(button => {
-
         button.addEventListener('click', () => {
+            const userId = button.dataset.id;
+            const url = window.location.origin + '/admin/toggleView/' + userId;
 
-            const tr = button.closest('tr');
-            tr.style.opacity = tr.style.opacity === '0.5' ? '1' : '0.5';
+            fetch(url, {
+                method: "POST",
+                headers: {
+                    [config.csrf.header]: config.csrf.value
+                }
+            })
+            .then(res => {
+                if (!res.ok) throw new Error("Error updating visibility");
+                return res.json();
+            })
+            .then(data => {
+                const tr = button.closest('tr');
+                const isVisible = data.visibilityState; 
 
-            if (button.textContent === 'Hide') {
-                button.textContent = 'Display';
-                button.classList.replace('btn-outline-danger', 'btn-success');
-            } else {
-                button.textContent = 'Hide';
-                button.classList.replace('btn-success', 'btn-outline-danger');
-            }
-
+                if (!isVisible) {
+                    tr.classList.add('opacity-50');
+                    button.textContent = 'Display';
+                    button.classList.replace('btn-outline-danger', 'btn-success');
+                } else {
+                    tr.classList.remove('opacity-50');
+                    button.textContent = 'Hide';
+                    button.classList.replace('btn-success', 'btn-outline-danger');
+                }
+            })
+            .catch(err => console.error(err));
         });
-
     });
 }
 

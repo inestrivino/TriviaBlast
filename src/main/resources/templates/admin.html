@@ -37,12 +37,11 @@
 
                         <td th:text="${user.email}">email@test.com</td>
 
-                        <!-- roles is now a STRING -->
                         <td th:text="${user.roles}">USER</td>
 
                         <td th:text="${user.totalPoints}">0</td>
 
-                        <td th:text="${user.estadoVisibilidad}">PUBLIC</td>
+                        <td th:text="${user.visibilityState}">PUBLIC</td>
 
                         <td>
                             <form th:action="@{/admin/toggle/{id}(id=${user.id})}" method="post">

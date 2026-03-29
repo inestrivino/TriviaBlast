@@ -31,20 +31,18 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr>
-                                        <td>Alexandra</td>
-                                        <td>1250</td>
+                                    <tr th:each="user : ${users}"
+                                        th:classappend="${!user.visibilityState} ? 'opacity-50'">
+
+                                        <td th:text="${user.username}">Name</td>
+                                        <td th:text="${user.totalPoints}">Points</td>
+
                                         <td sec:authorize="hasRole('ADMIN')">
-                                            <button type="button"
-                                                class="btn btn-outline-danger btn-sm toggle-btn">Hide</button>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>Jieru</td>
-                                        <td>980</td>
-                                        <td sec:authorize="hasRole('ADMIN')">
-                                            <button type="button"
-                                                class="btn btn-outline-danger btn-sm toggle-btn">Hide</button>
+                                            <button type="button" class="btn btn-sm toggle-btn"
+                                                th:classappend="${user.visibilityState} ? 'btn-outline-danger' : 'btn-success'"
+                                                th:text="${user.visibilityState} ? 'Hide' : 'Display'"
+                                                th:attr="data-id=${user.id}">
+                                            </button>
                                         </td>
                                     </tr>
                                 </tbody>

@@ -25,7 +25,7 @@ import jakarta.servlet.http.HttpSession;
 public class RootController {
 
     private static final Logger log = LogManager.getLogger(RootController.class);
-
+    
     @ModelAttribute
     public void populateModel(HttpSession session, Model model) {
         for (String name : new String[] { "u", "url", "ws", "topics" }) {
@@ -65,18 +65,15 @@ public class RootController {
         return "multi_victoryscr";
     }
 
-    @GetMapping("/scoreboard")
-    public String scoreboard(Model model) {
-        return "scoreboard";
-    }
-
     @GetMapping("/profile")
     public String profile(Model model) {
         return "profile";
     }
 
-    // SINGLE GAME CONTROLLER
-    // TO DO: WHAT ABOUT AUTHENTICATED REQUESTS?
+    @GetMapping("/proposal")
+    public String proposal(Model model) {
+        return "proposal";
+    }
 
     @GetMapping("/single_game_setup")
     public String single_game_setup(Model model) {

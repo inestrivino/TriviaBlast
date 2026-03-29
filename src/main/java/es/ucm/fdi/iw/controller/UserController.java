@@ -148,7 +148,8 @@ public class UserController {
 
     SecurityContextHolder.getContext().setAuthentication(authenticationResponse);
 
-    session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, SecurityContextHolder.getContext());
+    session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
+        SecurityContextHolder.getContext());
   }
 
   /**
@@ -444,6 +445,28 @@ public class UserController {
     }
 
     return "redirect:/";
+  }
+
+  @GetMapping("/scoreboard")
+  public String scoreboard(Model model) {
+    Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+    boolean isAdmin = auth.getAuthorities().stream()
+        .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+
+    List<User> users;
+
+    if (isAdmin) {
+      users = entityManager.createQuery(
+          "SELECT u FROM User u ORDER BY u.totalPoints DESC", User.class)
+          .getResultList();
+    } else {
+      users = entityManager.createQuery(
+          "SELECT u FROM User u WHERE u.visibilityState = TRUE ORDER BY u.totalPoints DESC", User.class)
+          .getResultList();
+    }
+
+    model.addAttribute("users", users);
+    return "scoreboard";
   }
 
 }

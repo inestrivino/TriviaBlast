@@ -7,7 +7,8 @@ import org.springframework.context.annotation.Bean;
 
 import es.ucm.fdi.iw.model.User;
 import jakarta.persistence.EntityManager;
-import jakarta.transaction.Transactional;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.annotation.Transactional;
 
 @SpringBootApplication
 public class IwApplication {
@@ -17,30 +18,36 @@ public class IwApplication {
     }
 
     @Bean
-    @Transactional
-    public org.springframework.boot.CommandLineRunner initUsers(EntityManager entityManager) {
+    public CommandLineRunner initUsers(EntityManager entityManager, PasswordEncoder passwordEncoder) {
         return new CommandLineRunner() {
             @Override
             @Transactional
             public void run(String... args) throws Exception {
-                Long count = (Long) entityManager
-                        .createQuery("SELECT COUNT(u) FROM User u")
+                Long adminCount = (Long) entityManager
+                        .createQuery("SELECT COUNT(u) FROM User u WHERE u.username = :username")
+                        .setParameter("username", "a")
                         .getSingleResult();
 
-                if (count == 0) {
+                if (adminCount == 0) {
+                    User admin = new User();
+                    admin.setUsername("a");
+                    admin.setPassword(passwordEncoder.encode("aa"));
+                    admin.setEmail("admin@example.com");
+                    admin.setRoles("ADMIN,USER");
+                    admin.setEnabled(true);
+                    entityManager.persist(admin);
 
-                    User u1 = new User();
-                    u1.setUsername("user1");
-                    u1.setPassword("pass");
-                    u1.setEmail("asd2@gmail.com");
+                    User user = new User();
+                    user.setUsername("b");
+                    user.setPassword(passwordEncoder.encode("aa"));
+                    user.setEmail("user@example.com");
+                    user.setRoles("USER");
+                    user.setEnabled(true);
+                    entityManager.persist(user);
 
-                    User u2 = new User();
-                    u2.setUsername("user2");
-                    u2.setPassword("pass");
-                    u2.setEmail("asd@gmail.com");
-
-                    entityManager.persist(u1);
-                    entityManager.persist(u2);
+                    System.out.println("Inserted admin and default user");
+                } else {
+                    System.out.println("Admin already exists, skipping user initialization");
                 }
             }
         };
