@@ -46,13 +46,6 @@ TriviaBlast es un juego interactivo que permite a los usuarios practicar y ganar
 
 ![Database Schema](DatabaseSchema.png)
 
-Algunos puntos posibles a cambiar:
-
-- Cambiar el nombre de `estadoVisibilidad` a algo en inglés que indique lo que significa que esté a true o false.
-- `code` no tiene por qué ser único, puede ser único solo entre las partidas activas.
-- Tal y como se muestra en el diagrama, user de Player debería ser un id en lugar de todo el objeto (para tener modularidad y seguridad). Ídem para los otros objetos que se usan en su totalidad en otros modelos.
-
-
 ## Estado de la implementación
 
 ### Terminada

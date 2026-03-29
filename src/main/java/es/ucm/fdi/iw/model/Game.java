@@ -26,7 +26,7 @@ public class Game {
     @Column(nullable = false)
     private String difficulty;
 
-    // HOW TO GENERATE?
+    // Note: code attribute being unique is not ideal as it means that there is a reachable limit in number of possible codes. However, JPA does not support (to our knowledge) conditional keys, and this system allows for 2.1 billion different codes which is enough for our application's current uses
     @Column(unique = true, nullable = false)
     private String code;
 
@@ -45,16 +45,21 @@ public class Game {
     @OneToMany(mappedBy = "game")
     private List<Player> players = new ArrayList<>();
 
-    @OneToMany(mappedBy = "game", cascade = CascadeType.ALL, orphanRemoval = true) // los mensajes pertenecen completamente al juego, si se borra el juego se borran los mensajes
+    @OneToMany(mappedBy = "game", cascade = CascadeType.ALL, orphanRemoval = true) //if game is deleted then messages are deleted too
     private List<Message> messages = new ArrayList<>();
-    
+
+    private static final String CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    private static final int CODE_LENGTH = 6;
+    private static final java.security.SecureRandom RANDOM = new java.security.SecureRandom();
+
     @PrePersist
     public void generateCode() {
         if (this.code == null) {
-            this.code = java.util.UUID.randomUUID()
-                    .toString()
-                    .substring(0, 6)
-                    .toUpperCase();
+            StringBuilder sb = new StringBuilder(CODE_LENGTH);
+            for (int i = 0; i < CODE_LENGTH; i++) {
+                sb.append(CHARS.charAt(RANDOM.nextInt(CHARS.length())));
+            }
+            this.code = sb.toString();
         }
     }
 }

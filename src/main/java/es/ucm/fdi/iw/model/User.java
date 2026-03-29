@@ -41,7 +41,7 @@ public class User implements Transferable<User.Transfer> {
     @Column(nullable=false, unique = true)
     private String email;
 
-    private String estadoVisibilidad = "PUBLIC";
+    private String visibilityState = "PUBLIC";
 
     private Integer totalPoints = 0;
 
