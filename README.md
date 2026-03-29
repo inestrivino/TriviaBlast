@@ -54,10 +54,10 @@ TriviaBlast es un juego interactivo que permite a los usuarios practicar y ganar
 - **Inicio**: Implementado correctamente. Dispone de un botón para unirse a una partida multijugador mediante un código cuando no se ha iniciado sesión. Una vez iniciada la sesión, se pueden ver también los botones para crear una partida multijugador o empezar una partida de un solo jugador. Actualmente solo este último hace algo.
 - **Partida individual**: Dispone de dos vistas. La primera, referida a la creación de la partida con sus ajustes, está completamente implementada. Los tipos de preguntas se corresponden a los de la API usada. La partida de un solo jugador en sí también se encuentra completamente implementada. Se muestran las preguntas y posibles respuestas. Al fallar una pregunta se muestra cual hubiese sido la correcta. Cabe mencionar que la validación de las preguntas se realiza completamente en el backend, por lo que se imposibilita el hacer trampas (para comprobar que el frontend nunca recibe las respuestas correctas, inicie una partida individual, abra la consola del navegador e introduzca `window.questions`). Hay un botón para abandonar la partida, y se muestra en qué número de pregunta y cantidad de puntos se han acumulado por el momento. Al acertar una pregunta el usuario recibe 10 puntos.
 - **Perfil de usuario**: Muestra la foto de perfil, nombre, y cantidad de puntos del usuario. También le permite cerrar la sesión o borrar completamente su cuenta. El botón `edit`, le permite cambiar su foto de perfil, su nombre y correo, o su contraseña (acción que se deberá validar con la contraseña anterior). En el futuro, cuando se disponga de la funcionalidad de las partidas multijugador, podremos mostrarlas en el perfil del usuario (como retrospectiva).
+- **Scoreboard**: Muestra los usuarios registrados junto con sus puntos. Si un administrador decide esconder a un usuario, su estatus de visibilidad se actualiza en la base de datos, y pasa a no aparecer en la tabla para usuarios normales.
 
 ### En progreso
 
-- **Scoreboard**: La estructura frontend necesaria está implementada. Solo los admins pueden ver el botón para ocultar usuarios. Faltaría que los usuarios mostrados procedan de la base de datos, y que la ocultación tuviese efecto real (se aplicase a nivel de base de datos).
 - **Partida multijugador**: Solo está implementada la vista estática. Para configurar la partida podemos reciclar la funcionalidad otorgada por la configuración de la partida individual, sin embargo faltaría implementar:
   1. La capacidad de conectar jugadores al juego (generación y funcionalidad de código para sala activa)
   2. La lógica del juego
@@ -67,5 +67,6 @@ TriviaBlast es un juego interactivo que permite a los usuarios practicar y ganar
 
 ### Otras cosas
 
+- Actualización de pantallas mediante AJAX (en scoreboard y la partida multijugador)
 - El despliegue de la aplicación en máquina virtual funciona correctamente.
 - Actualmente, la aplicación no dispone de pruebas, aunque se realizarán.
