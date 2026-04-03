@@ -2,7 +2,12 @@ document.addEventListener('DOMContentLoaded', () => {
     initAuthToggle();
     initBoard();
     initTableToggleButtons();
-    initTrivia();
+
+    if (window.gameCode) {
+    initMultiplayer();
+    } else {
+    initSingleplayer();
+    }
 
 });
 
@@ -136,7 +141,7 @@ function initTableToggleButtons() {
    SINGLEPLAYER TRIVIA SCRIPT
 ========================= */
 
-document.addEventListener("DOMContentLoaded", () => {
+function initSingleplayer() {
 
     let currentIndex = 0;
     let score = 0;
@@ -229,7 +234,100 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     showQuestion(currentIndex);
-});
+};
+
+/* =========================
+   MULTIPLAYER TRIVIA SCRIPT
+========================= */
+
+function initMultiplayer() {
+
+    let currentIndex = 0;
+
+    const statusEl = document.getElementById("gameStatus");
+
+    function updateStatus() {
+        const total = window.questions.length;
+        statusEl.textContent = `${currentIndex + 1}/${total}`;
+    }
+    const socket = new SockJS('/ws');
+    const stomp = Stomp.over(socket);
+
+    stomp.connect({}, () => {
+
+        console.log("Connected to multiplayer");
+        stomp.subscribe(`/topic/game/${window.gameCode}`, (msg) => {
+            const data = JSON.parse(msg.body);
+            handleLiveUpdate(data);
+        });
+
+    });
+
+    function showQuestion(index) {
+        const q = window.questions[index];
+
+        document.getElementById("question").innerHTML = q.question;
+
+        const answersEl = document.getElementById("answers");
+        const feedbackEl = document.getElementById("feedback");
+
+        answersEl.innerHTML = "";
+        feedbackEl.innerHTML = "";
+
+        q.answers.forEach(answer => {
+            const btn = document.createElement("button");
+            btn.className = "btn btn-outline-primary";
+            btn.innerHTML = answer;
+
+            btn.onclick = () => {
+                stomp.send(`/app/game/${window.gameCode}/answer`, {}, JSON.stringify({
+                    questionId: q.id,
+                    answer: answer,
+                    userId: window.userId
+                }));
+            };
+
+            answersEl.appendChild(btn);
+        });
+
+        updateStatus();
+    }
+
+    function handleLiveUpdate(data) {
+
+        const answersEl = document.getElementById("answers");
+        const feedbackEl = document.getElementById("feedback");
+        Array.from(answersEl.children).forEach(btn => btn.disabled = true);
+
+        const correctAnswer = decodeHtml(data.correctAnswer).trim().toLowerCase();
+        Array.from(answersEl.children).forEach(btn => {
+            if (btn.textContent.trim().toLowerCase() === correctAnswer) {
+                btn.classList.replace("btn-outline-primary", "btn-success");
+            }
+        });
+
+
+        if (data.correct) {
+            feedbackEl.textContent = "Correct!";
+        } else {
+            feedbackEl.textContent = "Wrong!";
+        }
+        setTimeout(() => {
+            currentIndex++;
+
+            if (currentIndex < window.questions.length) {
+                showQuestion(currentIndex);
+            } else {
+                document.getElementById("gameCard").innerHTML =
+                    `<div class="text-center fs-4 fw-bold">
+                        Game Over!
+                    </div>`;
+            }
+        }, 2000);
+    }
+
+    showQuestion(currentIndex);
+}
 
 /* =========================
    HELPERS

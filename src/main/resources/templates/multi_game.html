@@ -39,12 +39,35 @@
             </div>
 
         </div>
+        <div class="w-100 mt-4" style="max-width: 800px;">
+        <div class="border rounded p-3" id="gameCard">
+
+            <div id="gameStatus" class="mb-2 fw-bold text-center"></div>
+
+            <h5 id="question" class="text-center"></h5>
+
+            <div id="answers" class="d-flex flex-column gap-2 mt-3"></div>
+
+            <div id="feedback" class="mt-3 fw-bold text-center"></div>
+
+        </div>
+        </div>
 
     </main>
 
 
     <th:block th:replace="~{fragments/footer.html :: footer}" />
 
+    <script th:inline="javascript">
+        window.gameCode = "[[${session.gameCode}]]";
+        window.userId = "[[${session.u.id}]]";
+        window.questions = [[${questions}]];
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2/lib/stomp.min.js"></script>
+
+    <script src="/js/triviaBlast.js"></script>
 </body>
 
 </html>
