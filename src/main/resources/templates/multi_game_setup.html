@@ -92,27 +92,19 @@
 
     <th:block th:replace="~{fragments/footer.html :: footer}" />
     <script>
-    console.log("SCRIPT LOADED");
 
     window.addEventListener("DOMContentLoaded", () => {
-
         const form = document.getElementById("createGameForm");
-
         if (!form) {
             console.log("FORM NOT FOUND");
             return;
         }
-
         form.addEventListener("submit", async (e) => {
-            console.log("CLICK");
-
             e.preventDefault();
 
             const formData = new FormData(form);
-
             const token = document.querySelector('meta[name="_csrf"]').content;
             const header = document.querySelector('meta[name="_csrf_header"]').content;
-
             const res = await fetch("/game/create_multiplayer_game", {
                 method: "POST",
                 headers: {
@@ -127,7 +119,7 @@
 
             setTimeout(() => {
                 window.location.href = "/game/multi_game";
-            }, 3000);
+            }, 30000000);
         });
 
     });

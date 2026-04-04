@@ -141,8 +141,8 @@ public class GameController {
         game.getPlayers().add(user);
 
         session.setAttribute("gameCode", code);
-
-        return "OK";
+        System.out.println("JOIN CALLED");
+        return "redirect:/game/multi_game";
     }
     @GetMapping("/multi_game")
     public String startMultiGame(Model model, HttpSession session) {

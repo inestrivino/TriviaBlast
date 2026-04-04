@@ -15,9 +15,9 @@
         <div style="max-width: 400px;">
             <h1 class="mb-4">Insert game code</h1>
 
-            <form class="d-flex flex-column gap-3" th:action="@{/join-game}" method="post">
+            <form class="d-flex flex-column gap-3" th:action="@{/game/join}" method="post">
                 <input type="text" class="form-control form-control-lg text-center" placeholder="Código de juego"
-                    maxlength="10" pattern="[A-Za-z0-9]{6,10}" name="gameCode" required>
+                    maxlength="10" pattern="[A-Za-z0-9]{6,10}" name="code" required>
 
                 <button type="submit" class="btn btn-primary btn-lg">
                     Join Game
