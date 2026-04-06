@@ -308,8 +308,8 @@ function initMultiplayer() {
             }
         });
 
-
-        if (data.correct) {
+        const isCorrect= Boolean(data.correct === true || data.correct === 'true')
+        if (isCorrect) {
             feedbackEl.textContent = "Correct!";
         } else {
             feedbackEl.textContent = "Wrong!";
