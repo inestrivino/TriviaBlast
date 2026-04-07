@@ -118,6 +118,7 @@
             document.getElementById("gameCode").innerText = "Game Code: " + code;
 
             setTimeout(() => {
+                sessionStorage.setItem("gameCode", code);
                 window.location.href = "/game/multi_game";
             }, 30);
         });

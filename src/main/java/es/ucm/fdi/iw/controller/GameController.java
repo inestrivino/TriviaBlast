@@ -8,6 +8,10 @@ import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.messaging.handler.annotation.DestinationVariable;
+import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,13 +33,16 @@ import es.ucm.fdi.iw.model.User;
 import jakarta.persistence.EntityManager;
 import jakarta.servlet.http.HttpSession;
 import jakarta.transaction.Transactional;
-import org.springframework.ui.Model;
 
 @Controller
 @RequestMapping("/game")
 public class GameController {
+
     @Autowired
     private EntityManager entityManager;
+    @Autowired
+    private SimpMessagingTemplate messagingTemplate;
+
     private static Map<String, MultiplayerGameSession> games = new HashMap<>();
 
     @PostMapping("/start_single_game")
@@ -130,15 +137,16 @@ public class GameController {
 
         return code;
     }
+
     @PostMapping("/join")
     public String joinGame(@RequestParam String code, HttpSession session, Model model) {
 
         MultiplayerGameSession game = games.get(code);
 
-        if (game == null){
+        if (game == null) {
             model.addAttribute("error", "Game not found");
-            return "join_game"; 
-        } 
+            return "join_game";
+        }
 
         User user = (User) session.getAttribute("u");
         game.getPlayers().add(user);
@@ -147,14 +155,19 @@ public class GameController {
         System.out.println("JOIN CALLED");
         return "redirect:/game/multi_game";
     }
+
     @GetMapping("/multi_game")
     public String startMultiGame(Model model, HttpSession session) {
 
         String code = (String) session.getAttribute("gameCode");
-        if (code == null) return "redirect:/";
+        if (code == null) {
+            return "redirect:/";
+        }
 
         MultiplayerGameSession game = games.get(code);
-        if (game == null) return "redirect:/";
+        if (game == null) {
+            return "redirect:/";
+        }
 
         GameSetupDTO setup = game.getSetup();
         if (game.getQuestions() == null || game.getQuestions().isEmpty()) {
@@ -199,14 +212,49 @@ public class GameController {
         List<QuestionDataPublicDTO> publicQuestions = game.getQuestions()
                 .stream()
                 .map(q -> new QuestionDataPublicDTO(
-                        q.getId(),
-                        q.getQuestion(),
-                        q.getAnswers()
-                ))
+                q.getId(),
+                q.getQuestion(),
+                q.getAnswers()
+        ))
                 .toList();
 
         model.addAttribute("questions", publicQuestions);
 
         return "multi_game";
+    }
+
+    @MessageMapping("/{gameCode}/answer")
+    @Transactional
+    public void checkMultiAnswer(@DestinationVariable String gameCode,
+            @RequestBody AnswerReqDTO req, SimpMessageHeaderAccessor headerAccessor) {
+        System.out.println("asdasd");
+        MultiplayerGameSession game = games.get(gameCode);
+
+        if (game == null || req.getQuestionId() >= game.getQuestions().size()) {
+            return;
+        }
+
+        QuestionDataPrivateDTO q = game.getQuestions().get(req.getQuestionId());
+        boolean isCorrect = q.getCorrectAnswer().equals(req.getAnswer());
+
+        if (isCorrect) {
+            Map<String, Object> sessionAttributes = headerAccessor.getSessionAttributes();
+            User user = sessionAttributes != null ? (User) sessionAttributes.get("u") : null;
+            if (user != null) {
+                User managedUser = entityManager.find(User.class, user.getId());
+
+                if (managedUser != null) {
+                    managedUser.setTotalPoints(
+                            (managedUser.getTotalPoints() == null ? 0 : managedUser.getTotalPoints()) + 10);
+
+                    sessionAttributes.put("u", managedUser);
+                }
+            }
+        }
+
+        // Broadcast result to all players in the game
+        // This part would require a messaging template to send updates to clients
+        AnswerResDTO response = new AnswerResDTO(isCorrect, q.getCorrectAnswer());
+        messagingTemplate.convertAndSend("/topic/game/" + gameCode, response);
     }
 }

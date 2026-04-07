@@ -81,9 +81,9 @@
     <th:block th:replace="~{fragments/footer.html :: footer}" />
 
     <script th:inline="javascript">
-        window.gameCode = /*"[[${session.gameCode}]]"*/ "";
-        window.userId = /*"[[${session.u.id}]]"*/ "";
-        window.questions = /*[[${questions}]]*/  [];
+        window.gameCode = sessionStorage.getItem("gameCode");
+        window.userId = `[[${session.u.id}]]`;
+        window.questions = JSON.parse(`[[${questions}]]`);
     </script>
 
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>

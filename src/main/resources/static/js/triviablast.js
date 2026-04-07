@@ -254,7 +254,13 @@ function initMultiplayer() {
     const socket = new SockJS('/ws');
     const stomp = Stomp.over(socket);
 
-    stomp.connect({}, () => {
+    // 1. Define the headers for connection
+    const connectHeaders = {
+        [config.csrf.header]: config.csrf.value
+    };
+
+    // 2. Pass them as the first argument to stomp.connect
+    stomp.connect(connectHeaders, () => {
 
         console.log("Connected to multiplayer");
         stomp.subscribe(`/topic/game/${window.gameCode}`, (msg) => {
@@ -262,6 +268,9 @@ function initMultiplayer() {
             handleLiveUpdate(data);
         });
 
+    }, (error) => {
+        // Also added an error callback here which might help us if it still fails
+        console.error("STOMP connection error: ", error);
     });
 
     function showQuestion(index) {
@@ -282,7 +291,12 @@ function initMultiplayer() {
             btn.innerHTML = answer;
 
             btn.onclick = () => {
-                stomp.send(`/app/game/${window.gameCode}/answer`, {}, JSON.stringify({
+                // Pass the CSRF token in the second argument (the STOMP headers)
+                const headers = {
+                    [config.csrf.header]: config.csrf.value
+                };
+
+                stomp.send(`/app/game/${window.gameCode}/answer`, headers, JSON.stringify({
                     questionId: q.id,
                     answer: answer,
                     userId: window.userId
