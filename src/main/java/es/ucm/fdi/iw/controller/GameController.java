@@ -10,6 +10,7 @@ import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
@@ -223,11 +224,10 @@ public class GameController {
         return "multi_game";
     }
 
-    @MessageMapping("/{gameCode}/answer")
+     @MessageMapping("/game/{gameCode}/answer")
     @Transactional
     public void checkMultiAnswer(@DestinationVariable String gameCode,
-            @RequestBody AnswerReqDTO req, SimpMessageHeaderAccessor headerAccessor) {
-        System.out.println("asdasd");
+            @Payload AnswerReqDTO req, SimpMessageHeaderAccessor headerAccessor) {
         MultiplayerGameSession game = games.get(gameCode);
 
         if (game == null || req.getQuestionId() >= game.getQuestions().size()) {
@@ -251,6 +251,7 @@ public class GameController {
                 }
             }
         }
+
 
         // Broadcast result to all players in the game
         // This part would require a messaging template to send updates to clients

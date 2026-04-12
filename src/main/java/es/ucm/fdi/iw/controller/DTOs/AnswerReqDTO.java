@@ -6,4 +6,5 @@ import lombok.Data;
 public class AnswerReqDTO {
     private int questionId;
     private String answer;
+    private int userId;
 }
