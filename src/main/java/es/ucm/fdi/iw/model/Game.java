@@ -6,7 +6,10 @@ import java.util.List;
 
 import jakarta.persistence.*;
 import lombok.Data;
-
+@NamedQueries({
+    @NamedQuery(name = "Game.byCode", query = "SELECT g FROM Game g "
+        + "WHERE g.code = :code"),
+})
 @Entity
 @Data
 public class Game {

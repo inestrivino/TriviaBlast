@@ -1,25 +1,42 @@
 package es.ucm.fdi.iw.controller;
 
+import java.net.Authenticator;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.client.RestTemplate;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import es.ucm.fdi.iw.controller.DTOs.AnswerReqDTO;
 import es.ucm.fdi.iw.controller.DTOs.AnswerResDTO;
 import es.ucm.fdi.iw.controller.DTOs.GameSetupDTO;
 import es.ucm.fdi.iw.controller.DTOs.QuestionDataPrivateDTO;
 import es.ucm.fdi.iw.controller.DTOs.QuestionDataPublicDTO;
+import es.ucm.fdi.iw.model.Game;
+import es.ucm.fdi.iw.model.Message;
 import es.ucm.fdi.iw.model.User;
 import jakarta.persistence.EntityManager;
 import jakarta.servlet.http.HttpSession;
@@ -28,8 +45,26 @@ import jakarta.transaction.Transactional;
 @Controller
 @RequestMapping("/game")
 public class GameController {
+    private final AuthenticationManager authenticationManager;
+
+    private static final Logger log = LogManager.getLogger(GameController.class);
+
     @Autowired
     private EntityManager entityManager;
+
+    @Autowired
+    private SimpMessagingTemplate messagingTemplate;
+
+    GameController(AuthenticationManager authenticationManager) {
+        this.authenticationManager = authenticationManager;
+    }
+
+    @ModelAttribute
+    public void populateModel(HttpSession session, Model model) {
+        for (String name : new String[] { "u", "url", "ws", "topics" }) {
+        model.addAttribute(name, session.getAttribute(name));
+        }
+    }
 
     @PostMapping("/start_single_game")
     public String startGame(@ModelAttribute GameSetupDTO setup,
@@ -102,4 +137,93 @@ public class GameController {
 
         return new AnswerResDTO(isCorrect, q.getCorrectAnswer());
     }
+
+    
+    @PostMapping("/multi_game")
+    @Transactional
+    public String createMultiGame(HttpSession session) {
+        User u = (User)session.getAttribute("u");
+        u = entityManager.find(User.class, u.getId());
+        Game game=new Game();
+        game.setCategories(null);
+        game.setCode(UserController.generateRandomBase64Token(4));
+        game.setDifficulty("Easy");
+        game.setGameState("{\"x\" = 42;}");
+        game.setHost(u);
+        game.setInternalState("{\"x\" = 42;}");
+        game.setNumPlayers(1);
+        game.setNumQuestions(5);
+        u.getPartidasCreadas().add(game);
+
+        entityManager.persist(game);
+        entityManager.flush();
+        return "redirect:/game/multi_game/" + game.getCode();
+    }
+
+    @GetMapping("/multi_game/{code}")
+    public String multiGame(@PathVariable String code, Model model, HttpSession session) {
+        Game game = entityManager.createNamedQuery("Game.byCode", Game.class)
+            .setParameter("code", code)
+            .getSingleResult();
+        model.addAttribute("game", game);
+        session.setAttribute("topics", code);
+
+        return "multi_game";
+    }
+
+
+
+  @GetMapping(path = "/{code}/msg", produces = "application/json")
+  @Transactional // para no recibir resultados inconsistentes
+  @ResponseBody // para indicar que no devuelve vista, sino un objeto (jsonizado)
+  public List<Message.Transfer> retrieveMessages(HttpSession session, @PathVariable String code) {
+    //long userId = ((User) session.getAttribute("u")).getId();
+    Game g = entityManager.createNamedQuery("Game.byCode", Game.class)
+            .setParameter("code", code)
+            .getSingleResult();
+    return g.getMessages().stream()
+        .map(Message::toTransfer)
+        .collect(Collectors.toList());
+    }
+
+    
+    /**
+   * Posts a message to a game.
+   * 
+   * @param code of target game (source user is from ID)
+   * @param o  JSON-ized message, similar to {"message": "text goes here"}
+   * @throws JsonProcessingException
+   */
+  @PostMapping("/{code}/msg")
+  @ResponseBody
+  @Transactional
+  public String postMsg(@PathVariable String code,
+      @RequestBody JsonNode o, Model model, HttpSession session)
+      throws JsonProcessingException {
+
+    String text = o.get("message").asText();
+    User u = (User)session.getAttribute("u");
+    u = entityManager.find(User.class, u.getId());
+    Game g = entityManager.createNamedQuery("Game.byCode", Game.class)
+            .setParameter("code", code)
+            .getSingleResult();
+
+    // falta : ¿es u miembro de g?
+
+    // construye mensaje, lo guarda en BD
+    Message m = new Message();
+    m.setSender(u);
+    m.setGame(g);
+    m.setDateSent(LocalDateTime.now());
+    m.setText(text);
+    m.setAdminOnly(false);
+    entityManager.persist(m);
+    entityManager.flush(); // to get Id before commit
+
+    ObjectMapper mapper = new ObjectMapper();
+    String json = mapper.writeValueAsString(m.toTransfer());
+    log.info("Sending a message to {} with contents '{}'", code, json);
+    messagingTemplate.convertAndSend("/topic/" + code, json);
+    return "{\"result\": \"message sent.\"}";
+  }
 }
