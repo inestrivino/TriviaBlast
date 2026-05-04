@@ -68,7 +68,7 @@
         document.addEventListener("DOMContentLoaded", () => {
 
             // topic
-            window.setTimeout(() => ws.subscribe("topic/[[${game.code}?:'???']]", ws.receive),
+            window.setTimeout(() => ws.subscribe("/topic/[[${game.code}?:'???']]", ws.receive),
                 1000); 
 
             // envio de mensajes con AJAX

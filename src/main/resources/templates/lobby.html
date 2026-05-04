@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="es" class="h-100" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <th:block th:replace="~{fragments/head :: header}" />
+    <title>TriviaBlast - Lobby</title>
+</head>
+
+<body class="h-100 d-flex flex-column">
+    <header th:replace="~{fragments/nav.html :: nav}"></header>
+
+    <main class="flex-grow-1 d-flex align-items-center justify-content-center">
+        <div class="container" style="max-width: 600px;">
+
+            <div class="card shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">Lobby de partida</h4>
+                    <span class="badge bg-secondary fs-6">Código: <strong th:text="${game.code}">????</strong></span>
+                </div>
+                <div class="card-body">
+
+                    <!-- Jugadores conectados -->
+                    <h5 class="mb-3">Jugadores en sala <span class="badge bg-primary" id="player-count">0</span></h5>
+                    <ul class="list-group mb-4" id="player-list">
+                        <li class="list-group-item text-muted fst-italic">Esperando jugadores...</li>
+                    </ul>
+
+                    <!-- Estado del lobby -->
+                    <div id="lobby-status" class="alert alert-info mb-3" role="alert">
+                        Conectándose al lobby...
+                    </div>
+
+                    <!-- Botón solo para el host -->
+                    <div th:if="${isHost}" class="d-grid">
+                        <button id="start-btn" class="btn btn-success btn-lg" disabled>
+                             Iniciar partida
+                        </button>
+                        <small class="text-muted text-center mt-1">Necesitas al menos 2 jugadores para empezar</small>
+                    </div>
+
+                    <!-- Mensaje para no-host -->
+                    <div th:unless="${isHost}" class="alert alert-warning" id="waiting-host">
+                         Esperando a que el host inicie la partida...
+                    </div>
+
+                </div>
+                <div class="card-footer text-end">
+                    <button id="leave-btn" class="btn btn-outline-danger btn-sm">Abandonar sala</button>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <th:block th:replace="~{fragments/footer.html :: footer}" />
+
+    <script th:inline="javascript">
+        const gameCode = /*[[${"'" + game.code + "'"}]]*/ "XXXX";
+        const currentUser = /*[[${u != null ? "'" + u.username + "'" : "'Guest'"}]]*/ "Guest";
+        const isHost = /*[[${isHost}]]*/ false;
+        const hostUsername = /*[[${"'" + game.host.username + "'"}]]*/ "HOST";
+
+        // WEBSOCKET SIN SockJS — conexión nativa STOMP
+
+        const lobbyTopic = `/topic/${gameCode}`;
+        let stompConnected = false;
+
+        ws.receive = (msg) => {
+            handleWsMessage(msg);
+        };
+
+        document.addEventListener("DOMContentLoaded", () => {
+            setStatus("Conectando al servidor...", "info");
+
+            // Join lobby via AJAX first
+            joinLobby();
+
+            // Start button (host only)
+            const startBtn = document.getElementById("start-btn");
+            if (startBtn) {
+                startBtn.addEventListener("click", () => {
+                    startBtn.disabled = true;
+                    startBtn.textContent = "Iniciando...";
+                    go(`${config.rootUrl}/game/${gameCode}/lobby/start`, "POST")
+                        .then(d => {
+                            if (d.status !== "started") {
+                                setStatus("Error al iniciar: " + (d.message || "desconocido"), "danger");
+                                startBtn.disabled = false;
+                                startBtn.textContent = "Iniciar partida";
+                            }
+                        })
+                        .catch(e => {
+                            console.error("Error starting game", e);
+                            setStatus("Error al iniciar la partida", "danger");
+                            startBtn.disabled = false;
+                            startBtn.textContent = "Iniciar partida";
+                        });
+                });
+            }
+
+            // Leave button
+            document.getElementById("leave-btn").addEventListener("click", () => {
+                go(`${config.rootUrl}/game/${gameCode}/lobby/leave`, "POST")
+                    .then(() => window.location.href = config.rootUrl + "/")
+                    .catch(() => window.location.href = config.rootUrl + "/");
+            });
+
+            // Leave lobby when page is closed/navigated away
+            window.addEventListener("beforeunload", () => {
+                navigator.sendBeacon(
+                    `${config.rootUrl}/game/${gameCode}/lobby/leave`,
+                    new Blob([JSON.stringify({})], { type: "application/json" })
+                );
+            });
+        });
+
+
+        // AJAX: join lobby and load initial player list
+        function joinLobby() {
+            go(`${config.rootUrl}/game/${gameCode}/lobby/join`, "POST")
+                .then(data => {
+                    renderPlayers(data.players);
+                    setStatus(`Bienvenido, ${data.username}! Sala lista.`, "success");
+                })
+                .catch(err => {
+                    console.error("Error joining lobby:", err);
+                    // Fallback: load player list anyway
+                    loadPlayers();
+                    setStatus("Conectado (modo limitado)", "warning");
+                });
+        }
+
+        function loadPlayers() {
+            go(`${config.rootUrl}/game/${gameCode}/lobby/players`, "GET")
+                .then(data => renderPlayers(data.players))
+                .catch(e => console.error("Error loading players:", e));
+        }
+
+
+        // WS message handler
+        function handleWsMessage(msg) {
+            console.log("Lobby WS message:", msg);
+            if (msg.type === "lobby_update") {
+                renderPlayers(msg.players);
+            } else if (msg.type === "game_start") {
+                setStatus("La partida va a comenzar", "success");
+                // Redirect all players to the game
+                setTimeout(() => {
+                    window.location.href = msg.redirect || (config.rootUrl + "/game/multi_game/" + gameCode);
+                }, 1000);
+            }
+        }
+
+        function escapeHtml(str) {
+            const d = document.createElement("div");
+            d.textContent = str;
+            return d.innerHTML;
+        }
+
+        // Render helpers
+        function renderPlayers(players) {
+            const list = document.getElementById("player-list");
+            const count = document.getElementById("player-count");
+            const startBtn = document.getElementById("start-btn");
+
+            count.textContent = players.length;
+
+            if (players.length === 0) {
+                list.innerHTML = '<li class="list-group-item text-muted fst-italic">Esperando jugadores...</li>';
+            } else {
+                list.innerHTML = players.map(p => {
+                    const isMe = p === currentUser;
+                    const hostBadge = (p === hostUsername) ? ' <span class="badge bg-warning text-dark ms-1">Host</span>' : '';
+                    const meBadge = isMe ? ' <span class="badge bg-info ms-1">Tú</span>' : '';
+                    return `<li class="list-group-item d-flex align-items-center justify-content-between">
+                        <span> ${escapeHtml(p)}${hostBadge}${meBadge}</span>
+                    </li>`;
+                }).join("");
+            }
+
+            // Enable start button for host when >= 2 players
+            if (startBtn) {
+                startBtn.disabled = players.length < 2;
+            }
+        }
+
+        function setStatus(text, type) {
+            const el = document.getElementById("lobby-status");
+            el.className = `alert alert-${type} mb-3`;
+            el.textContent = text;
+        }
+
+
+
+        
+    </script>
+
+</body>
+</html>
