@@ -7,6 +7,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.HashMap;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -45,6 +47,7 @@ import jakarta.transaction.Transactional;
 @Controller
 @RequestMapping("/game")
 public class GameController {
+
     private final AuthenticationManager authenticationManager;
 
     private static final Logger log = LogManager.getLogger(GameController.class);
@@ -65,6 +68,8 @@ public class GameController {
         model.addAttribute(name, session.getAttribute(name));
         }
     }
+
+    // SINGLE PLAYER
 
     @PostMapping("/start_single_game")
     public String startGame(@ModelAttribute GameSetupDTO setup,
@@ -138,12 +143,16 @@ public class GameController {
         return new AnswerResDTO(isCorrect, q.getCorrectAnswer());
     }
 
-    
+
+    // MULTI PLAYER
+
     @PostMapping("/multi_game")
     @Transactional
     public String createMultiGame(HttpSession session) {
+
         User u = (User)session.getAttribute("u");
         u = entityManager.find(User.class, u.getId());
+
         Game game=new Game();
         game.setCategories(null);
         game.setCode(UserController.generateRandomBase64Token(4));
@@ -153,11 +162,13 @@ public class GameController {
         game.setInternalState("{\"x\" = 42;}");
         game.setNumPlayers(1);
         game.setNumQuestions(5);
+
         u.getPartidasCreadas().add(game);
 
         entityManager.persist(game);
         entityManager.flush();
-        return "redirect:/game/multi_game/" + game.getCode();
+
+        return "redirect:/game/lobby/" + game.getCode();
     }
 
     @GetMapping("/multi_game/{code}")
@@ -165,28 +176,28 @@ public class GameController {
         Game game = entityManager.createNamedQuery("Game.byCode", Game.class)
             .setParameter("code", code)
             .getSingleResult();
+
         model.addAttribute("game", game);
         session.setAttribute("topics", code);
 
         return "multi_game";
     }
 
+    // CHAT (AJAX)
 
-
-  @GetMapping(path = "/{code}/msg", produces = "application/json")
-  @Transactional // para no recibir resultados inconsistentes
-  @ResponseBody // para indicar que no devuelve vista, sino un objeto (jsonizado)
-  public List<Message.Transfer> retrieveMessages(HttpSession session, @PathVariable String code) {
-    //long userId = ((User) session.getAttribute("u")).getId();
-    Game g = entityManager.createNamedQuery("Game.byCode", Game.class)
-            .setParameter("code", code)
-            .getSingleResult();
-    return g.getMessages().stream()
-        .map(Message::toTransfer)
-        .collect(Collectors.toList());
+    @GetMapping(path = "/{code}/msg", produces = "application/json")
+    @Transactional // para no recibir resultados inconsistentes
+    @ResponseBody // para indicar que no devuelve vista, sino un objeto (jsonizado)
+    public List<Message.Transfer> retrieveMessages(HttpSession session, @PathVariable String code) {
+        //long userId = ((User) session.getAttribute("u")).getId();
+        Game g = entityManager.createNamedQuery("Game.byCode", Game.class)
+                .setParameter("code", code)
+                .getSingleResult();
+        return g.getMessages().stream()
+            .map(Message::toTransfer)
+            .collect(Collectors.toList());
     }
 
-    
     /**
    * Posts a message to a game.
    * 
@@ -194,36 +205,173 @@ public class GameController {
    * @param o  JSON-ized message, similar to {"message": "text goes here"}
    * @throws JsonProcessingException
    */
-  @PostMapping("/{code}/msg")
-  @ResponseBody
-  @Transactional
-  public String postMsg(@PathVariable String code,
-      @RequestBody JsonNode o, Model model, HttpSession session)
-      throws JsonProcessingException {
+    @PostMapping("/{code}/msg")
+    @ResponseBody
+    @Transactional
+    public String postMsg(@PathVariable String code,
+        @RequestBody JsonNode o, Model model, HttpSession session)
+        throws JsonProcessingException {
 
-    String text = o.get("message").asText();
-    User u = (User)session.getAttribute("u");
-    u = entityManager.find(User.class, u.getId());
-    Game g = entityManager.createNamedQuery("Game.byCode", Game.class)
+        String text = o.get("message").asText();
+        User u = (User)session.getAttribute("u");
+        u = entityManager.find(User.class, u.getId());
+        Game g = entityManager.createNamedQuery("Game.byCode", Game.class)
+                .setParameter("code", code)
+                .getSingleResult();
+
+        // falta : ¿es u miembro de g?
+
+        // construye mensaje, lo guarda en BD
+        Message m = new Message();
+        m.setSender(u);
+        m.setGame(g);
+        m.setDateSent(LocalDateTime.now());
+        m.setText(text);
+        m.setAdminOnly(false);
+        entityManager.persist(m);
+        entityManager.flush(); // to get Id before commit
+
+        ObjectMapper mapper = new ObjectMapper();
+        String json = mapper.writeValueAsString(m.toTransfer());
+        log.info("Sending a message to {} with contents '{}'", code, json);
+        messagingTemplate.convertAndSend("/topic/" + code, json);
+        return "{\"result\": \"message sent.\"}";
+    }
+
+
+    // LOBBY
+
+    private static final ConcurrentHashMap<String, List<String>> lobbyPlayers = new ConcurrentHashMap<>();
+
+    @GetMapping("/lobby/{code}")
+    public String showLobby(@PathVariable String code, Model model, HttpSession session) {
+        Game game = entityManager.createNamedQuery("Game.byCode", Game.class)
             .setParameter("code", code)
             .getSingleResult();
+        model.addAttribute("game", game);
 
-    // falta : ¿es u miembro de g?
+        User u = (User) session.getAttribute("u");
+        boolean isHost = (u != null && game.getHost().getId() == u.getId());
+        model.addAttribute("isHost", isHost);
 
-    // construye mensaje, lo guarda en BD
-    Message m = new Message();
-    m.setSender(u);
-    m.setGame(g);
-    m.setDateSent(LocalDateTime.now());
-    m.setText(text);
-    m.setAdminOnly(false);
-    entityManager.persist(m);
-    entityManager.flush(); // to get Id before commit
+        session.setAttribute("topics", code);
 
-    ObjectMapper mapper = new ObjectMapper();
-    String json = mapper.writeValueAsString(m.toTransfer());
-    log.info("Sending a message to {} with contents '{}'", code, json);
-    messagingTemplate.convertAndSend("/topic/" + code, json);
-    return "{\"result\": \"message sent.\"}";
-  }
+        return "lobby";
+    }
+
+    @PostMapping("/join")
+    public String joinGame(@RequestParam("gameCode") String gameCode,
+            Model model, HttpSession session) {
+        try {
+            entityManager.createNamedQuery("Game.byCode", Game.class)
+                .setParameter("code", gameCode)
+                .getSingleResult();
+            return "redirect:/game/lobby/" + gameCode;
+        } catch (Exception e) {
+            model.addAttribute("error", "Código de partida inválido: " + gameCode);
+            return "join_game";
+        }
+    }
+
+
+    @PostMapping("/{code}/lobby/join")
+    @ResponseBody
+    @Transactional
+    public Map<String, Object> joinLobby(@PathVariable String code, HttpSession session) {
+        User u = (User) session.getAttribute("u");
+        String username = (u != null) ? u.getUsername() : "Guest";
+
+        lobbyPlayers.computeIfAbsent(code, k -> new ArrayList<>());
+        List<String> players = lobbyPlayers.get(code);
+        if (!players.contains(username)) {
+            players.add(username);
+        }
+
+        Map<String, Object> wsMsg = new HashMap<>();
+        wsMsg.put("type", "lobby_update");
+        wsMsg.put("players", players);
+
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            String json = mapper.writeValueAsString(wsMsg);
+            messagingTemplate.convertAndSend("/topic/" + code, json);
+        } catch (Exception e) {
+            log.error("Error broadcasting lobby leave", e);
+        }
+
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("status", "joined");
+        resp.put("players", players);
+        resp.put("username", username);
+        return resp;
+    }
+
+    @PostMapping("/{code}/lobby/leave")
+    @ResponseBody
+    public Map<String, Object> leaveLobby(@PathVariable String code, HttpSession session) {
+        User u = (User) session.getAttribute("u");
+        String username = (u != null) ? u.getUsername() : "Guest";
+
+        List<String> players = lobbyPlayers.getOrDefault(code, new ArrayList<>());
+        players.remove(username);
+
+        Map<String, Object> wsMsg = new HashMap<>();
+        wsMsg.put("type", "lobby_update");
+        wsMsg.put("players", players);
+
+        try {
+            String json = new ObjectMapper().writeValueAsString(wsMsg);
+            messagingTemplate.convertAndSend("/topic/" + code, json);
+        } catch (Exception e) {
+            log.error("Error broadcasting lobby leave", e);
+        }
+
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("status", "left");
+        resp.put("players", players);
+        return resp;
+    }
+
+    @GetMapping(path = "/{code}/lobby/players", produces = "application/json")
+    @ResponseBody
+    public Map<String, Object> getLobbyPlayers(@PathVariable String code) {
+        List<String> players = lobbyPlayers.getOrDefault(code, new ArrayList<>());
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("players", players);
+        return resp;
+    }
+
+    @PostMapping("/{code}/lobby/start")
+    @ResponseBody
+    @Transactional
+    public Map<String, Object> startLobbyGame(@PathVariable String code, HttpSession session) {
+        User u = (User) session.getAttribute("u");
+
+        Game game = entityManager.createNamedQuery("Game.byCode", Game.class)
+                .setParameter("code", code)
+                .getSingleResult();
+
+        if (u == null || game.getHost().getId() != u.getId()) {
+            Map<String, Object> errorResp = new HashMap<>();
+            errorResp.put("status", "error");
+            errorResp.put("message", "Only the host can start the game");
+            return errorResp;
+        }
+
+        Map<String, Object> wsMsg = new HashMap<>();
+        wsMsg.put("type", "game_start");
+        wsMsg.put("redirect", "/game/multi_game/" + code + "/play");
+
+        try {
+            String json = new ObjectMapper().writeValueAsString(wsMsg);
+            messagingTemplate.convertAndSend("/topic/" + code, json);
+        } catch (Exception e) {
+            log.error("Error broadcasting game start", e);
+        }
+
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("status", "started");
+        return resp;
+    }
+  
 }
