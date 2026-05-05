@@ -40,11 +40,11 @@
 
 
             <!--Cuadro enviar mensajes--> 
-            <div style="flex-shrink: 0; width: 500px;">
+            <div style="flex-shrink: 0; width: 500px; background-color: #E5ECEC;">
                 <div class="border rounded p-3 h-100">
                     
                     <!-- recepción de mensajes -->
-                    <div class="py-5 row" id="mensajes">
+                    <div class="py-5" id="mensajes">
                     </div>
                     <!-- envío de mensajes -->
                     <div class="py-5 row ">
@@ -68,13 +68,15 @@
         document.addEventListener("DOMContentLoaded", () => {
 
             // topic
-            window.setTimeout(() => ws.subscribe("topic/[[${game.code}?:'???']]", ws.receive),
-                1000); 
-
+            if (config.topics.indexOf("[[${game.code}?:'???']]") == -1) {
+                window.setTimeout(() => ws.subscribe("/topic/[[${game.code}?:'???']]", ws.receive),1000); 
+            }
+            
             // envio de mensajes con AJAX
             let b = document.getElementById("sendmsg");
             b.onclick = (e) => {
                 e.preventDefault();
+                 if (!document.getElementById("message").value) return; // evita mensajes vacíos
                 go(b.parentNode.action, 'POST', {
                         message: document.getElementById("message").value
                     })
@@ -87,8 +89,13 @@
 
             // cómo pintar 1 mensaje (devuelve html que se puede insertar en un div)
             function renderMsg(msg) {
-            console.log("rendering: ", msg);
-            return `<div>${msg.from} @${msg.sent}: ${msg.text}</div>`;
+                console.log("rendering: ", msg);
+                const date = new Date(msg.sent);
+                const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            return `<div class='${msg.from == "[[${u.username}]]"? "me" : "notme"} chatmsg'>
+                    ${msg.from} ${time}
+                    <div>${msg.text}</div>
+                    </div>`;
             }
 
 
