@@ -56,7 +56,7 @@ public class SecurityConfig {
 
 		http
 				.csrf(csrf -> csrf
-						.ignoringRequestMatchers("/api/**"))
+						.ignoringRequestMatchers("/api/**", "/game/**")) // game puede estar mal 
 				.authorizeHttpRequests(authorize -> authorize
 
 						// recursos públicos
