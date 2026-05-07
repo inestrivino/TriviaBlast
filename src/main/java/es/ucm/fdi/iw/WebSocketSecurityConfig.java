@@ -10,6 +10,13 @@ import org.springframework.security.messaging.access.intercept.MessageMatcherDel
 import es.ucm.fdi.iw.model.User;
 
 /**
+* SEGURIDAD WEBSOCKET 
+
+* Similar a SecurityConfig pero para mensajes WebSocket STOMP
+* Controla quién puede enviar y recibir mensajes por WebSocket
+*/
+
+/**
  * Similar to SecurityConfig, but for websockets that use STOMP.
  * 
  * @see https://docs.spring.io/spring-security/reference/servlet/integrations/websocket.html
@@ -18,6 +25,11 @@ import es.ucm.fdi.iw.model.User;
 @EnableWebSocketSecurity  
 public class WebSocketSecurityConfig {
 
+    /*  
+    * define las reglas:
+    * · Enviar/recibir mensajes de /admin/** → solo ADMIN
+    * · Cualquier otro mensaje → usuario autenticado
+    */
     @Bean
     AuthorizationManager<Message<?>> messageAuthorizationManager(MessageMatcherDelegatingAuthorizationManager.Builder messages) {
         

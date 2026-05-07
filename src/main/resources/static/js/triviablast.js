@@ -1,3 +1,18 @@
+/**
+* JAVASCRIPT PRINCIPAL DEL FRONTEND
+
+* Contiene toda la lógica del lado del cliente para la interfaz de usuario
+* Se inicializa cuando el DOM está listo
+*/
+
+/*
+* initTrivia() / bloque DOMContentLoaded interno:
+* Lógica completa del juego individual (single player):
+* · showQuestion(index): muestra la pregunta y sus respuestas como botones
+* · sendAnswer(answer, questionId, btn): hace POST a /game/answer con
+* fetch(), recibe {correct, correctAnswer}, colorea el botón
+* (verde/rojo) y muestra "Correct!" o "Incorrect!"
+*/
 document.addEventListener('DOMContentLoaded', () => {
     initAuthToggle();
     initBoard();
@@ -9,6 +24,11 @@ document.addEventListener('DOMContentLoaded', () => {
 /* =========================
    AUTH (Login / Register)
 ========================= */
+/*
+* Alterna visibilidad entre el formulario de login y el de
+* registro en login.html. Expone window.toggleForms() para
+* llamarla desde onclick en el HTML
+*/
 function initAuthToggle() {
     const login = document.getElementById("loginForm");
     const register = document.getElementById("registerForm");
@@ -25,6 +45,12 @@ function initAuthToggle() {
 /* =========================
    BOARD (SVG Game Board)
 ========================= */
+/*
+* Dibuja el tablero SVG de 8x8 con la librería SVG.js cuando
+* existe el elemento #tablero-container. El tablero recorre
+* las casillas en espiral numerándolas del 1 al 64. Se redibuja
+* al cambiar el tamaño de la ventana (responsive)
+*/
 function initBoard() {
     const container = document.getElementById('tablero-container');
     if (!container || typeof SVG === "undefined") return;
@@ -94,6 +120,12 @@ function initBoard() {
 /* =========================
    SCOREBOARD
 ========================= */
+/*
+* Para la tabla de usuarios en admin.html. Cuando se hace clic
+* en un botón .toggle-btn, hace un POST a /admin/toggleView/{userId}
+* con fetch() y actualiza visualmente la fila (opacidad + texto
+* del botón) según el nuevo estado de visibilidad
+*/
 function initTableToggleButtons() {
     const buttons = document.querySelectorAll('.toggle-btn');
     if (!buttons.length) return;
@@ -215,6 +247,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 }));
     }
 
+    // avanza a la siguiente pregunta o muestra "Game Over!" con la puntuación final si se acabaron
     nextBtn.onclick = () => {
         currentIndex++;
         if (currentIndex < window.questions.length) {
@@ -234,6 +267,7 @@ document.addEventListener("DOMContentLoaded", () => {
 /* =========================
    HELPERS
 ========================= */
+// Decodifica entidades HTML (p.ej. &amp; → &) que vienen en el texto de las preguntas de OpenTDB
 function decodeHtml(html) {
     const txt = document.createElement("textarea");
     txt.innerHTML = html;

@@ -27,6 +27,15 @@ import jakarta.persistence.TypedQuery;
 import jakarta.servlet.http.HttpSession;
 import jakarta.transaction.Transactional;
 
+
+/**
+* CONTROLLER DE ADMINISTRACIÓN 
+
+* Solo accesible para usuarios con rol ADMIN (configurado en SecurityConfig)
+* Ruta base: /admin/**
+*/
+
+
 /**
  * Site administration.
  *
@@ -51,6 +60,7 @@ public class AdminController {
 
   private static final Logger log = LogManager.getLogger(AdminController.class);
 
+  // Lista todos los usuarios de la BD y renderiza admin.html
   @GetMapping("/")
   public String index(Model model) {
     log.info("Admin acaba de entrar");
@@ -59,6 +69,12 @@ public class AdminController {
     return "admin";
   }
 
+  /*
+  * Cambia el campo visibilityState del usuario (true/false)
+  * Un usuario oculto no aparece en el scoreboard para otros usuarios
+  * Devuelve JSON con el nuevo estado. Llamado desde triviablast.js
+  * mediante fetch() (sin recargar la página)
+  */
   @PostMapping("/toggleView/{userId}")
   @Transactional
   @ResponseBody
@@ -89,6 +105,7 @@ public class AdminController {
   /**
    * Returns JSON with all received messages
    */
+  // Devuelve los últimos 5 mensajes del sistema como JSON (Paginado: puedes cambiar setFirstResult/setMaxResults)
   @GetMapping(path = "all-messages", produces = "application/json")
   @Transactional // para no recibir resultados inconsistentes
   @ResponseBody // para indicar que no devuelve vista, sino un objeto (jsonizado)
@@ -101,6 +118,7 @@ public class AdminController {
         .collect(Collectors.toList());
   }
 
+  // Crea datos de prueba: 2 partidas y 15 usuarios de prueba asignados a esas partidas. Devuelve JSON
   @RequestMapping("/populate")
   @ResponseBody
   @Transactional

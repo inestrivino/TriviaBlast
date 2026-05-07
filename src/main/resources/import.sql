@@ -1,3 +1,10 @@
+-- DATOS INICIALES
+
+-- Se ejecuta al arrancar si spring.jpa.hibernate.ddl-auto contiene "create"
+-- Inserta los usuarios iniciales (admin "a" y usuario "b", ambos con
+-- contraseña "aa" cifrada con BCrypt)
+
+
 -- insert admin (username a, password aa)
 INSERT INTO IWUser (id, enabled, roles, username, password, email)
 VALUES (1, TRUE, 'ADMIN,USER', 'a',

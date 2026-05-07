@@ -1,5 +1,6 @@
 package es.ucm.fdi.iw.model;
 
+import java.net.http.WebSocket;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
@@ -20,6 +21,17 @@ import org.apache.logging.log4j.Logger;
 import lombok.Data;
 import lombok.Getter;
 import lombok.AllArgsConstructor;
+
+/**
+* ENTIDAD MENSAJE DE CHAT
+
+* Representa un mensaje enviado en el chat de una partida
+* Implementa Transferable<Message.Transfer> para poder serializarse
+* a JSON de forma segura (sin exponer relaciones JPA circulares)
+*
+* Los mensajes se eliminan en cascada si se elimina la partida
+* (cascade = CascadeType.ALL, orphanRemoval = true en Game.messages).
+*/
 
 /**
  * A message that users can send each other.
@@ -45,8 +57,12 @@ public class Message implements Transferable<Message.Transfer> {
 	@GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "gen")
 	@SequenceGenerator(name = "gen", sequenceName = "gen")
 	private long id;
+
+	// usuario que envió el mensaje (ManyToOne → User)
 	@ManyToOne
 	private User sender;
+
+	// partida a la que pertenece el mensaje (ManyToOne → Game)
 	@ManyToOne(optional = false)
 	@JoinColumn(name = "game_id") // obligatorio
 	private Game game; // this serves as the "topic" of the message, i.e. the room where it was sent
@@ -57,6 +73,7 @@ public class Message implements Transferable<Message.Transfer> {
 	@Column(nullable = false)
 	private LocalDateTime dateSent = LocalDateTime.now();
 
+	// si true, solo visible para admins (mensajes del sistema)
 	@Column(nullable = false)
 	private boolean adminOnly = false; // if true, the message is addressed to the admins of the game
 
@@ -65,6 +82,9 @@ public class Message implements Transferable<Message.Transfer> {
 	 * 
 	 * @author mfreire
 	 */
+
+	// Clase interna Transfer: Objeto plano (sin relaciones JPA) que se serializa a JSON para
+	// enviarse por WebSocket o como respuesta de la API
 	@Getter
 	@AllArgsConstructor
 	public static class Transfer {

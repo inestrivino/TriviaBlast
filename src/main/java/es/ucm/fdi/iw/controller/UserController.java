@@ -51,6 +51,18 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+
+/**
+* CONTROLLER DE USUARIOS 
+
+* Gestiona todo lo relacionado con cuentas de usuario: registro,
+* perfil, foto, mensajes y puntuación. Ruta base: /user/**
+*
+*
+* Añadir campo nuevo al perfil: añadir el campo en User.java, AdminController.java
+* en profile.html un nuevo input, y en postUser() guarda el valor
+*/
+
 /**
  * User management.
  *
@@ -104,6 +116,8 @@ public class UserController {
    *         for example, a possible encoding of "test" is
    *         {bcrypt}$2y$12$XCKz0zjXAP6hsFyVc8MucOzx6ER6IsC1qo5zQbclxhddR1t6SfrHm
    */
+
+  // codifica contraseña con BCrypt
   public String encodePassword(String rawPassword) {
     return passwordEncoder.encode(rawPassword);
   }
@@ -114,6 +128,9 @@ public class UserController {
    * @param byteLength
    * @return
    */
+
+  // genera tokens aleatorios seguros
+  // (usado también en AdminController para códigos de partida)
   public static String generateRandomBase64Token(int byteLength) {
     SecureRandom secureRandom = new SecureRandom();
     byte[] token = new byte[byteLength];
@@ -121,6 +138,7 @@ public class UserController {
     return Base64.getUrlEncoder().withoutPadding().encodeToString(token); // base64 encoding
   }
 
+  // Obtiene el usuario de la sesión y renderiza profile.html
   @GetMapping("/profile")
   public String profile(Model model, HttpSession session) {
     User user = (User) session.getAttribute("u");
@@ -134,6 +152,7 @@ public class UserController {
   /**
    * Landing page for a user profile
    */
+  // Busca el usuario por ID en la BD y renderiza profile.html
   @GetMapping("{id}")
   public String index(@PathVariable long id, Model model, HttpSession session) {
     User target = entityManager.find(User.class, id);
@@ -141,6 +160,7 @@ public class UserController {
     return "profile";
   }
 
+  //  hace login programático tras el registro
   private void authenticateUser(String username, String rawPassword, HttpSession session) {
     Authentication authenticationRequest = UsernamePasswordAuthenticationToken.unauthenticated(username, rawPassword);
 
@@ -155,6 +175,10 @@ public class UserController {
   /**
    * Alter or create a user
    */
+  /*
+  * Registra un nuevo usuario. Valida que las contraseñas coincidan,
+  * codifica la contraseña, persiste el User, y hace auto-login
+  */
   @PostMapping("/register")
   @Transactional
   public String register(
@@ -186,6 +210,14 @@ public class UserController {
   /**
    * Alter or create a user
    */
+
+  /*
+  * * Actualiza el perfil. Distingue tres sub-formularios vía el param "formType":
+  * · "password" → valida contraseña actual, actualiza si coincide
+  * · "userNameEmail"→ actualiza username y/o email
+  * · "avatar" → redirige al endpoint /pic
+  * Solo el propio usuario o un ADMIN pueden modificar un perfil
+  */
   @PostMapping("/{id}")
   @Transactional
   public String postUser(
@@ -283,6 +315,8 @@ public class UserController {
    * @return
    * @throws IOException
    */
+
+  // Descarga la foto de perfil. Si no existe, devuelve la foto por defecto
   @GetMapping("{id}/pic")
   public StreamingResponseBody getPic(@PathVariable long id) throws IOException {
     File f = localData.getFile("user", "" + id + ".jpg");
@@ -297,6 +331,7 @@ public class UserController {
    * @return
    * @throws IOException
    */
+  // Guarda la foto subida en ./iwdata/user /{id}.jpg
   @PostMapping("{id}/pic")
   public String setPic(@RequestParam("photo") MultipartFile photo, @PathVariable long id,
       HttpServletResponse response, HttpSession session, Model model) throws IOException {
@@ -339,6 +374,8 @@ public class UserController {
   /**
    * Returns JSON with all received messages
    */
+
+  // Devuelve mensajes enviados por el usuario como JSON
   @GetMapping(path = "received", produces = "application/json")
   @Transactional // para no recibir resultados inconsistentes
   @ResponseBody // para indicar que no devuelve vista, sino un objeto (jsonizado)
@@ -365,6 +402,8 @@ public class UserController {
   /**
    * Returns JSON with count of unread messages
    */
+
+  // Cuenta mensajes no leídos (usando named query Message.countUnread)
   @GetMapping(path = "unread", produces = "application/json")
   @ResponseBody
   public String checkUnread(HttpSession session) {
@@ -383,6 +422,8 @@ public class UserController {
    * @param o  JSON-ized message, similar to {"message": "text goes here"}
    * @throws JsonProcessingException
    */
+
+  // Envía un mensaje a otro usuario por WebSocket (/user/{username}/queue/updates)
   @PostMapping("/{id}/msg")
   @ResponseBody
   @Transactional
@@ -424,6 +465,7 @@ public class UserController {
     return "{\"result\": \"message sent.\"}";
   }
 
+  // Borra el usuario de la BD. Si se borra a sí mismo, cierra sesión
   @PostMapping("/{id}/delete")
   @Transactional
   public String deleteUser(@PathVariable long id, HttpSession session) {
@@ -447,6 +489,11 @@ public class UserController {
     return "redirect:/";
   }
 
+  /*
+  * Devuelve la lista de usuarios ordenados por totalPoints.
+  * Los admins ven todos; los usuarios solo ven los que tienen
+  * visibilityState = true
+  */
   @GetMapping("/scoreboard")
   public String scoreboard(Model model) {
     Authentication auth = SecurityContextHolder.getContext().getAuthentication();

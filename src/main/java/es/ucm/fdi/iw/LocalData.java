@@ -5,6 +5,20 @@ import java.io.File;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+
+/**
+* GESTIÓN DE FICHEROS LOCALES 
+
+* Bean (definido en AppConfig) que gestiona la carpeta donde se
+* guardan los ficheros subidos por los usuarios (fotos de perfil, etc.)
+* La carpeta raíz se configura con "es.ucm.fdi.base-path"
+* en application.properties (por defecto: ./iwdata)
+*
+* localData.getFile("user", userId + ".jpg")
+* → devuelve ./iwdata/user/42.jpg (para guardar/leer foto del user 42)
+*/
+
+
 /**
  * Abstraction for local file-storage path.
  * 
@@ -19,6 +33,7 @@ public class LocalData {
 
     private File baseFolder;
     
+    // crea la carpeta si no existe
     public LocalData(File baseFolder) {
 		this.baseFolder = baseFolder;
     	log.info("base folder is " + baseFolder.getAbsolutePath());
@@ -42,6 +57,8 @@ public class LocalData {
      * @return a File pointing to the folder baseFolder/folderName, which will be
      * created if absent.
      */
+
+    // devuelve (y crea si no existe) la subcarpeta baseFolder/folderName
     public File getFolder(String folderName) {
     	File folder = new File(baseFolder, folderName);
     	if ( ! folder.exists()) {
@@ -59,6 +76,9 @@ public class LocalData {
      * the file does not exist, it is not created. However, if its folder
      * does not exist, it *will* be created (as by a call to getFolder).
      */
+
+    // devuelve la ruta completa baseFolder/folderName/fileName. La subcarpeta se crea si no
+    // existe, pero el fichero NO se crea
     public File getFile(String folderName, String fileName) {
     	return new File(getFolder(folderName), fileName);
     }

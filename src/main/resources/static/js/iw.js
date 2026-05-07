@@ -1,3 +1,10 @@
+/**
+* LIBRERÍA DE UTILIDADES IW 
+
+* Fichero de utilidades reutilizable para toda la app. Proporciona
+* el cliente WebSocket (STOMP) y la función fetch simplificada
+*/
+
 "use strict"
 
 /**
@@ -13,6 +20,10 @@ const ws = {
     /**
      * Default action when message is received. 
      */
+    /*
+    * ws.receive(data): función por defecto que imprime en consola y
+    * actualiza el contador de mensajes no leídos en el nav
+    */
     receive: (text) => {
         console.log(text);
         let p = document.querySelector("#nav-unread");
@@ -27,6 +38,11 @@ const ws = {
      * Attempts to establish communication with the specified
      * web-socket endpoint. If successfull, will call 
      */
+    /*
+    * ws.initialize(endpoint, subs): conecta al endpoint WebSocket
+    * (/ws) usando STOMP y se suscribe a los canales de la lista subs
+    * Tiene reintento automático (hasta 3 veces)
+    */
     initialize: (endpoint, subs = []) => {
         try {
             ws.stompClient = Stomp.client(endpoint);
@@ -48,6 +64,10 @@ const ws = {
         }
     },
 
+    /*
+    * ws.subscribe(channel): suscribe al canal y llama ws.receive()
+    * cada vez que llega un mensaje JSON
+    */
     subscribe: (sub) => {
         try {
             ws.stompClient.subscribe(sub,
@@ -78,6 +98,14 @@ const ws = {
  *     text: <describing the error>
  *  }
  */
+
+/*
+* Wrapper sobre fetch() que:
+* · Serializa data a JSON automáticamente
+* · Añade el header CSRF (X-CSRF-TOKEN) en todas las peticiones POST
+* · Devuelve una Promise que resuelve con el JSON de respuesta
+* · En caso de error (status != ok), rechaza con {url, data, status, text}
+*/
 function go(url, method, data = {}, headers = false) {
     let params = {
         method: method, // POST, GET, POST, PUT, DELETE, etc.

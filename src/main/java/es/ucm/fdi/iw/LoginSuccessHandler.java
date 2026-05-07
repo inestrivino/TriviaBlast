@@ -24,6 +24,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import es.ucm.fdi.iw.model.User;
 
+
+/**
+* MANEJADOR DE LOGIN EXITOSO 
+
+* Se ejecuta justo después de que un usuario se autentica correctamente
+* Es el puente entre Spring Security y nuestra sesión HTTP
+*/
+
+
 /**
  * Called when a user is first authenticated (via login).
  * Called from SecurityConfig; see https://stackoverflow.com/a/53353324
@@ -49,6 +58,16 @@ public class LoginSuccessHandler implements AuthenticationSuccessHandler {
   /**
    * Called whenever a user authenticates correctly.
    */
+
+  /* 
+  * Guarda en la sesión HTTP los atributos:
+  * · "u" → el objeto User completo (recuperado de la BD)
+  * · "url" → la URL base de la app (útil para AJAX y templates)
+  * · "ws" → la URL del WebSocket (ws:// o wss:// según entorno)
+  * · "topics" → cadena vacía, se rellenará cuando entre a una partida
+  * Después redirige: si es ADMIN → /admin/, si es USER → /user/{id}
+  */
+
   @Override
   public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
       Authentication authentication) throws IOException, ServletException {
@@ -105,6 +124,8 @@ public class LoginSuccessHandler implements AuthenticationSuccessHandler {
    * 
    * @param response
    */
+
+  // añade "SameSite=Strict" a la cookie de sesión para evitar warnings en navegadores modernos
   private void addSameSiteCookieAttribute(HttpServletResponse response) {
     Collection<String> headers = response.getHeaders(HttpHeaders.SET_COOKIE);
     boolean firstHeader = true;

@@ -15,6 +15,14 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import es.ucm.fdi.iw.model.User;
 
 /**
+* SERVICIO DE AUTENTICACIÓN 
+
+* Spring Security necesita este servicio para saber cómo buscar un usuario
+* por nombre de usuario en la BD
+* Es el adaptador entre nuestra entidad User y el sistema de autenticación de Spring
+*/
+
+/**
  * Authenticates login attempts against a JPA database
  */
 public class IwUserDetailsService implements UserDetailsService {
@@ -27,6 +35,13 @@ public class IwUserDetailsService implements UserDetailsService {
     public void setEntityManager(EntityManager em){
         this.entityManager = em;
     }
+
+	/*
+	* Busca el usuario en la BD con la named query "User.byUsername" (definida en User.java)
+	* Si lo encuentra, construye un UserDetails de Spring con sus roles
+	* (p.ej. "USER" → "ROLE_USER", "ADMIN" → "ROLE_ADMIN")
+	* Si no lo encuentra, lanza UsernameNotFoundException
+	*/
 
     public UserDetails loadUserByUsername(String username){
     	try {

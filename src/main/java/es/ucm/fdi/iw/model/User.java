@@ -11,6 +11,16 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+
+/**
+* ENTIDAD USUARIO 
+
+* Representa un usuario registrado en el sistema. Se mapea a la tabla
+* "IWUser" en la BD (nombre cambiado para evitar conflicto con la
+* palabra reservada "user" en H2)
+*/
+
+
 /**
  * An authorized user of the system.
  */
@@ -18,8 +28,10 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 @NamedQueries({
+    // busca usuario activo por username (usado en login)
     @NamedQuery(name = "User.byUsername", query = "SELECT u FROM User u "
         + "WHERE u.username = :username AND u.enabled = TRUE"),
+    // cuenta usuarios con ese username (para validar unicidad)
     @NamedQuery(name = "User.hasUsername", query = "SELECT COUNT(u) "
         + "FROM User u "
         + "WHERE u.username = :username"),
@@ -41,26 +53,30 @@ public class User implements Transferable<User.Transfer> {
     @Column(nullable=false, unique = true)
     private String email;
 
+    // aparece en el scoreboard público
     private boolean visibilityState = true;
 
     private Integer totalPoints = 0;
 
     private String avatar = "default-pic.png";
 
+    // cuenta desactivada (no puede hacer login)
     private boolean enabled = true;
 
     private String roles = "USER";
 
-
+    // mensajes enviados por este usuario (relación 1:N)
     @OneToMany(mappedBy = "sender")
     private List<Message> sent = new ArrayList<>();
 
 
     // Games created by this user
+    // partidas de las que es host (relación 1:N con Game)
     @OneToMany(mappedBy = "host")
     private List<Game> partidasCreadas = new ArrayList<>();
 
     // Games played by this user
+    // registros en partidas jugadas (relación 1:N con Player)
     @OneToMany(mappedBy = "user")
     private List<Player> players = new ArrayList<>();
     
@@ -80,6 +96,7 @@ public class User implements Transferable<User.Transfer> {
         private String groups;
     }
 
+    // convierte a User.Transfer para serializar a JSON sin exponer la contraseña
     @Override
     public Transfer toTransfer() {
         return new Transfer(

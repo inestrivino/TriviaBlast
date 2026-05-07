@@ -40,6 +40,16 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import jakarta.transaction.Transactional;
 
+
+/**
+* CONTROLLER REST / API 
+
+* Expone endpoints JSON sin necesidad de autenticación por defecto
+* Usa @RestController (= @Controller + @ResponseBody en todos los métodos)
+* Ruta base: /api/**
+*
+*/
+
 /**
  * API, intended for logged-in users.
  *
@@ -64,6 +74,8 @@ public class ApiController {
    * @param message
    * @return {"code" = "<message>"}
    */
+  
+  // Endpoint de prueba. Devuelve {code: "<message>"}
   @GetMapping("/status/{message}")
   public Map<String, String> check(@PathVariable String message) {
     return Map.of("code", message);
@@ -75,6 +87,8 @@ public class ApiController {
    * @param message
    * @return {"code" = "<message>"}
    */
+
+// Devuelve {count: N} con el número total de usuarios en la BD
 @GetMapping("/users/count")
 public Map<String, Long> usersCount() {
     return Map.of("count",
@@ -87,6 +101,8 @@ public Map<String, Long> usersCount() {
    * @param path - path to the file - **relative to target/classes**
    * @return the file
    */
+
+  // carga un fichero del classpath (dentro del JAR)
   private File loadFromClasspath(String path) {
       try {
           return ResourceUtils.getFile("classpath:"+path);
@@ -101,6 +117,8 @@ public Map<String, Long> usersCount() {
    * @param vars
    * @return
    */
+
+  // ejecuta código JavaScript embebido con karate-js
   private Object eval(String source, Map<String, Object> vars) {
     Parser parser = new Parser(new Source(source));
     Node node = parser.parse();
@@ -114,6 +132,12 @@ public Map<String, Long> usersCount() {
   /** 
    * Executes JS code loaded from a file in the server
    */
+
+  /*
+  * Carga el fichero static/js/js-eval.js del classpath, lo ejecuta
+  * con el intérprete karate-js (motor JS embebido en Java) y devuelve
+  * el resultado
+  */
   @GetMapping(value = "/js", produces = MediaType.APPLICATION_JSON_VALUE)
   public Map<String,String> testJs() throws Exception{
     String start = Files.readString(
@@ -136,6 +160,9 @@ public Map<String, Long> usersCount() {
    * @param o  JSON-ized message, similar to {"message": "text goes here"}
    * @throws JsonProcessingException
    */
+
+  // Envía un mensaje a una partida (solo si el usuario es miembro o ADMIN)
+  // Guarda el mensaje en BD y lo emite por WebSocket a /game/{code}
   @PostMapping("/game/{code}")
   @ResponseBody
   @Transactional
@@ -181,6 +208,8 @@ public Map<String, Long> usersCount() {
    * @param o  JSON-ized message, similar to {"message": "text goes here"}
    * @throws JsonProcessingException
    */
+
+  // Devuelve todos los mensajes de una partida como JSON (solo si tienes permiso)
   @GetMapping("/game/{code}")
   @ResponseBody
   @Transactional

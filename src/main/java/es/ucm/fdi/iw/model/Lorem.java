@@ -3,6 +3,13 @@ package es.ucm.fdi.iw.model;
 import java.util.Random;
 
 /**
+* GENERADOR DE DATOS ALEATORIOS 
+
+* Clase de utilidad con métodos estáticos para generar nombres y
+* apellidos aleatorios en español
+*/
+
+/**
  * Código para generar basura. Todo son métodos estáticos.
  */
 public class Lorem {

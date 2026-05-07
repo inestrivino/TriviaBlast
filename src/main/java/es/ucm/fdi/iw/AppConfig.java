@@ -8,6 +8,14 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.support.ResourceBundleMessageSource;
 import org.springframework.core.env.Environment;
 
+
+/**
+* CONFIGURACIÓN GENERAL DE beans
+
+* Clase de configuración de Spring
+* Define beans globales accesibles con @Autowired en cualquier parte de la aplicación
+*/
+
 /**
  * General configuration for a Spring app.
  * 
@@ -27,6 +35,13 @@ public class AppConfig {
 	 * `@Autowired LocalData localData`, and have it initialized
 	 * with the result of this method. 
 	 */	
+
+	/*
+	* Crea el bean LocalData a partir de la propiedad
+	* "es.ucm.fdi.base-path" definida en application.properties
+	* LocalData es el objeto que gestiona dónde se guardan los ficheros
+	* de usuario (fotos de perfil, etc.)
+	*/
     @Bean(name="localData")
     public LocalData getLocalData() {
     	return new LocalData(new File(env.getProperty("es.ucm.fdi.base-path")));
@@ -37,7 +52,13 @@ public class AppConfig {
 	 * 
 	 * This will be used to fill in internationalized (i18n for short) messages
 	 * in your web templates.  
-	 */    
+	 */   
+
+	/*
+	* Configura internacionalización (i18n)
+	* Lee mensajes del fichero Messages.properties para mostrarlos en las plantillas
+	* Thymeleaf con #{clave} 
+	*/ 
     @Bean
     public ResourceBundleMessageSource messageSource() {
         ResourceBundleMessageSource messageSource = new ResourceBundleMessageSource();

@@ -10,13 +10,27 @@ import jakarta.persistence.EntityManager;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+* PUNTO DE ENTRADA DE LA APLICACIÓN
+
+* Es la clase main de Spring Boot
+* Cuando ejecutas "mvn spring-boot:run", Spring arranca aquí
+*/
+
 @SpringBootApplication
 public class IwApplication {
 
+    // arranca todo el contexto de Spring Boot
     public static void main(String[] args) {
         SpringApplication.run(IwApplication.class, args);
     }
 
+    /**
+    * Al arrancar, comprueba si ya existe el usuario admin ("a"). Si no existe, crea dos usuarios por defecto:
+    * · usuario "a" (contraseña "aa") con roles ADMIN,USER
+    * · usuario "b" (contraseña "aa") con rol USER
+    * Esto evita que se dupliquen si se reinicia la app con la BD en disco 
+    */
     @Bean
     public CommandLineRunner initUsers(EntityManager entityManager, PasswordEncoder passwordEncoder) {
         return new CommandLineRunner() {

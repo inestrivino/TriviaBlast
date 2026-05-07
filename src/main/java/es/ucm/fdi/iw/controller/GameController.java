@@ -1,6 +1,7 @@
 package es.ucm.fdi.iw.controller;
 
 import java.net.Authenticator;
+import java.net.http.WebSocket;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -44,6 +45,18 @@ import jakarta.persistence.EntityManager;
 import jakarta.servlet.http.HttpSession;
 import jakarta.transaction.Transactional;
 
+
+/**
+* CONTROLLER DE PARTIDAS 
+
+* Gestiona tanto las partidas individuales como
+* las multijugador y el lobby en tiempo real vía WebSocket
+* Ruta base: /game/**
+
+* Limitar el número de jugadores en el lobby: en joinLobby(), comprobar
+* players.size() antes de añadir y devolver error si se superó el límite.
+*/
+
 @Controller
 @RequestMapping("/game")
 public class GameController {
@@ -69,8 +82,19 @@ public class GameController {
         }
     }
 
+
+
+
     // SINGLE PLAYER
 
+    /*
+    * Llama a OpenTDB con los parámetros de GameSetupDTO, construye la
+    * lista de preguntas mezclando respuestas correctas e incorrectas,
+    * guarda las preguntas COMPLETAS (con respuesta correcta) en sesión
+    * como "questions" (List<QuestionDataPrivateDTO>), y manda al
+    * frontend solo QuestionDataPublicDTO (sin la respuesta correcta)
+    * Renderiza single_game.html
+    */
     @PostMapping("/start_single_game")
     public String startGame(@ModelAttribute GameSetupDTO setup,
             Model model,
@@ -113,6 +137,12 @@ public class GameController {
         return "single_game";
     }
 
+    /*
+    * Recibe{questionId, answer} del frontend
+    * Comprueba contra las preguntas guardadas en sesión
+    * Si es correcta, suma 10 puntos al User en la BD
+    * Devuelve {correct, correctAnswer} como JSON
+    */
     @PostMapping("/answer")
     @ResponseBody
     @Transactional
@@ -144,8 +174,12 @@ public class GameController {
     }
 
 
+
+
     // MULTI PLAYER
 
+    // Crea una nueva partida Game en la BD con código único de 4 chars,
+    // asigna al usuario actual como host, y redirige al lobby
     @PostMapping("/multi_game")
     @Transactional
     public String createMultiGame(HttpSession session) {
@@ -171,6 +205,7 @@ public class GameController {
         return "redirect:/game/lobby/" + game.getCode();
     }
 
+    // Carga la partida por código y renderiza multi_game.html
     @GetMapping("/multi_game/{code}")
     public String multiGame(@PathVariable String code, Model model, HttpSession session) {
         Game game = entityManager.createNamedQuery("Game.byCode", Game.class)
@@ -183,8 +218,12 @@ public class GameController {
         return "multi_game";
     }
 
+
+
+
     // CHAT (AJAX)
 
+    // Devuelve todos los mensajes de la partida como JSON
     @GetMapping(path = "/{code}/msg", produces = "application/json")
     @Transactional // para no recibir resultados inconsistentes
     @ResponseBody // para indicar que no devuelve vista, sino un objeto (jsonizado)
@@ -205,6 +244,8 @@ public class GameController {
    * @param o  JSON-ized message, similar to {"message": "text goes here"}
    * @throws JsonProcessingException
    */
+
+    // Guarda un mensaje en BD y lo emite por WebSocket a /topic/{code}
     @PostMapping("/{code}/msg")
     @ResponseBody
     @Transactional
@@ -239,10 +280,13 @@ public class GameController {
     }
 
 
+
+
     // LOBBY
 
     private static final ConcurrentHashMap<String, List<String>> lobbyPlayers = new ConcurrentHashMap<>();
 
+    // Muestra lobby.html. Determina si el usuario es el host
     @GetMapping("/lobby/{code}")
     public String showLobby(@PathVariable String code, Model model, HttpSession session) {
         Game game = entityManager.createNamedQuery("Game.byCode", Game.class)
@@ -259,6 +303,7 @@ public class GameController {
         return "lobby";
     }
 
+    // Valida el código de partida y redirige al lobby
     @PostMapping("/join")
     public String joinGame(@RequestParam("gameCode") String gameCode,
             Model model, HttpSession session) {
@@ -273,7 +318,8 @@ public class GameController {
         }
     }
 
-
+    // Añade al usuario a la lista en memoria (lobbyPlayers) y emite
+    // un mensaje WebSocket de tipo "lobby_update" a /topic/{code}
     @PostMapping("/{code}/lobby/join")
     @ResponseBody
     @Transactional
@@ -306,6 +352,7 @@ public class GameController {
         return resp;
     }
 
+    // Elimina al usuario del lobby y emite "lobby_update"
     @PostMapping("/{code}/lobby/leave")
     @ResponseBody
     public Map<String, Object> leaveLobby(@PathVariable String code, HttpSession session) {
@@ -332,6 +379,7 @@ public class GameController {
         return resp;
     }
 
+    // Devuelve la lista actual de jugadores en el lobby
     @GetMapping(path = "/{code}/lobby/players", produces = "application/json")
     @ResponseBody
     public Map<String, Object> getLobbyPlayers(@PathVariable String code) {
@@ -341,6 +389,8 @@ public class GameController {
         return resp;
     }
 
+    // Solo el host puede llamar esto. Emite "game_start" por WebSocket
+    // con la URL de redirección a la pantalla de juego
     @PostMapping("/{code}/lobby/start")
     @ResponseBody
     @Transactional

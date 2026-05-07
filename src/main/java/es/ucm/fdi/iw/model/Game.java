@@ -6,6 +6,16 @@ import java.util.List;
 
 import jakarta.persistence.*;
 import lombok.Data;
+
+
+/**
+* ENTIDAD PARTIDA 
+
+* Representa una partida multijugador
+* Se mapea a la tabla "Game"
+*/
+
+// busca una partida por su código único
 @NamedQueries({
     @NamedQuery(name = "Game.byCode", query = "SELECT g FROM Game g "
         + "WHERE g.code = :code"),
@@ -55,6 +65,7 @@ public class Game {
     private static final int CODE_LENGTH = 6;
     private static final java.security.SecureRandom RANDOM = new java.security.SecureRandom();
 
+    // genera automáticamente el código único de 6 caracteres alfanuméricos justo antes de persistir en BD
     @PrePersist
     public void generateCode() {
         if (this.code == null) {
