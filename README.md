@@ -65,6 +65,13 @@ TriviaBlast es un juego interactivo que permite a los usuarios practicar y ganar
   4. La recepción de puntos al finalizar la partida
 - **Barra de navegación**: Actualmente responde a una estructura deseada para el debugging de la aplicación y la visualización de las vistas que siguen siendo estáticas. Sin embargo, en el futuro tendrá una estructura más común para una aplicación online práctica (casa, perfil/login), mientras que las vistas referidas al juego serán accesibles desde los botones correspondientes en la "casa".
 
+### Usuarios en la BD
+- Al inicializar la aplicación, se encontrarán dos usuarios en la base de datos con los que se puede inicializar la sesión gracias a los botones en la barra de navegación: a (el cual es un admin) y b (usuario normal).
+
+### Recursos externos e IA
+- Se ha usado IA para la comprobación, limpieza o desarrollo de ciertas partes del código. Por ejemplo, se ha usado IA para limpiar el client.js y para desarrollar la versión actual del tablero del modo multijugador (debido a desconocimiento de la librería svg.js). En la entrega final se proporcionará una lista más en detalle sobre dónde se hizo uso de IA y para qué. 
+- Se pretende usar un código externo como referencia para la implementación del dado en el juego multijugador (se especificará en la entrega final).
+
 ### Otras cosas
 
 - Actualización de pantallas mediante AJAX (en scoreboard y la partida multijugador)
