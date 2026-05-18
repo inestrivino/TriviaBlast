@@ -47,8 +47,6 @@
 
                         <td th:text="${user.totalPoints}">0</td>
 
-                        <td th:text="${user.visibilityState}">PUBLIC</td>
-
                         <td>
                             <form th:action="@{/admin/toggle/{id}(id=${user.id})}" method="post">
                                 <button th:if="${user.enabled}" type="submit"

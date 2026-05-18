@@ -1,0 +1,144 @@
+<!--
+   Pantalla de juego multijugador (con chat WebSocket)
+-->
+
+<!DOCTYPE html>
+<html lang="es" class="h-100" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <th:block th:replace="~{fragments/head :: header}" />
+    <title>TriviaBlast Game</title>
+    <link rel="stylesheet" th:href="@{/css/simple-datatables-10.css}" href="/css/simple-datatables-10.css"
+        type="text/css" />
+</head>
+
+<body class="h-100 d-flex flex-column">
+    <header th:replace="~{fragments/nav.html :: nav}"></header>
+
+    <div class="container-fluid p-3">
+        <button class="btn btn-danger">Exit Game</button>
+    </div>
+
+    <main class="flex-grow-1 container-fluid d-flex justify-content-center align-items-start p-3">
+
+        <div class="d-flex flex-wrap justify-content-center align-items-start gap-3"
+            style="width: 100%; max-width: 1200px;">
+
+            <div style="flex-shrink: 0; width: 70vw; max-width: 800px;">
+                <div class="border rounded p-3" id="tablero-container"
+                    style="width: 100%; height: auto; max-height: 80vh; overflow: hidden;">
+                    <!-- Aquí se generará el tablero SVG -->
+                </div>
+            </div>
+
+            <div style="flex-shrink: 0; width: 250px;">
+                <div class="border rounded p-3 h-100">
+                    <h4 class="mb-3">Players</h4>
+                    <ul class="list-group">
+                        <li class="list-group-item">Player 1</li>
+                        <li class="list-group-item">Player 2</li>
+                        <li class="list-group-item">Player 3</li>
+                    </ul>
+                </div>
+            </div>
+
+
+            <!--Cuadro enviar mensajes-->
+            <div style="flex-shrink: 0; width: 500px; background-color: #E5ECEC;">
+                <div class="border rounded p-3 h-100">
+
+                    <!-- recepción de mensajes -->
+                    <div class="py-5" id="mensajes">
+                    </div>
+                    <!-- envío de mensajes -->
+                    <div class="py-5 row ">
+                        <form th:action="@{/game/{code}/msg(code=${game.code})}" method="POST">
+                            <input type="text" id="message" placeholder="Escribe por aquí" />
+                            <button id="sendmsg" class="btn btn-secondary" type="submit"><i
+                                    class="bi bi-send"></i></button>
+                        </form>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+
+    <th:block th:replace="~{fragments/footer.html :: footer}" />
+    <script th:inline="javascript">
+
+        document.addEventListener("DOMContentLoaded", () => {
+
+            const currentUser = /*[[${user.username}]]*/ "debugUser";
+            const gameCode = /*[[${game.code}]]*/ "DEBUG";
+
+            console.log("CURRENT USER:", currentUser);
+            console.log("GAME CODE:", gameCode);
+
+            // topic
+            if (config.topics.indexOf(gameCode) == -1) {
+                window.setTimeout(() =>
+                    ws.subscribe("/topic/" + gameCode, ws.receive), 1000);
+            }
+
+            // envio de mensajes con AJAX
+            let b = document.getElementById("sendmsg");
+
+            b.onclick = (e) => {
+                e.preventDefault();
+
+                if (!document.getElementById("message").value) return;
+
+                go(b.parentNode.action, 'POST', {
+                    message: document.getElementById("message").value
+                })
+                    .then(d => {
+                        console.log("happy", d);
+                        document.getElementById("message").value = "";
+                    })
+                    .catch(e => console.log("sad", e))
+            }
+
+            function renderMsg(msg) {
+
+                const date = new Date(msg.sent);
+
+                const time = date.toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+
+                return `<div class="${msg.from == currentUser ? "me" : "notme"}">
+            ${msg.from} ${time}
+            <div>${msg.text}</div>
+        </div>`;
+            }
+
+            let messageDiv = document.getElementById("mensajes");
+
+            go(config.rootUrl + "/game/" + gameCode + "/msg", "GET")
+                .then(ms =>
+                    ms.forEach(m =>
+                        messageDiv.insertAdjacentHTML("beforeend", renderMsg(m))
+                    )
+                );
+
+            if (ws.receive) {
+
+                const oldFn = ws.receive;
+
+                ws.receive = (m) => {
+                    oldFn(m);
+                    messageDiv.insertAdjacentHTML("beforeend", renderMsg(m));
+                }
+            }
+        });
+
+    </script>
+
+</body>
+
+</html>

@@ -492,7 +492,7 @@ public class UserController {
   /*
   * Devuelve la lista de usuarios ordenados por totalPoints.
   * Los admins ven todos; los usuarios solo ven los que tienen
-  * visibilityState = true
+  * enabled = true
   */
   @GetMapping("/scoreboard")
   public String scoreboard(Model model) {
@@ -508,7 +508,7 @@ public class UserController {
           .getResultList();
     } else {
       users = entityManager.createQuery(
-          "SELECT u FROM User u WHERE u.visibilityState = TRUE ORDER BY u.totalPoints DESC", User.class)
+          "SELECT u FROM User u WHERE u.enabled = TRUE ORDER BY u.totalPoints DESC", User.class)
           .getResultList();
     }
 

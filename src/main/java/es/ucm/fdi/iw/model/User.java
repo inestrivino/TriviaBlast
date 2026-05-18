@@ -53,9 +53,6 @@ public class User implements Transferable<User.Transfer> {
     @Column(nullable=false, unique = true)
     private String email;
 
-    // aparece en el scoreboard público
-    private boolean visibilityState = true;
-
     private Integer totalPoints = 0;
 
     private String avatar = "default-pic.png";

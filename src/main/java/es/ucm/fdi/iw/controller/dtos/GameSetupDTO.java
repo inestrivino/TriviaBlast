@@ -1,4 +1,4 @@
-package es.ucm.fdi.iw.controller.DTOs;
+package es.ucm.fdi.iw.controller.dtos;
 
 /**
 * DATA TRANSFER OBJECTS 

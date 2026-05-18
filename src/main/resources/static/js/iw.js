@@ -1,10 +1,3 @@
-/**
-* LIBRERÍA DE UTILIDADES IW 
-
-* Fichero de utilidades reutilizable para toda la app. Proporciona
-* el cliente WebSocket (STOMP) y la función fetch simplificada
-*/
-
 "use strict"
 
 /**
@@ -20,10 +13,6 @@ const ws = {
     /**
      * Default action when message is received. 
      */
-    /*
-    * ws.receive(data): función por defecto que imprime en consola y
-    * actualiza el contador de mensajes no leídos en el nav
-    */
     receive: (text) => {
         console.log(text);
         let p = document.querySelector("#nav-unread");
@@ -38,11 +27,6 @@ const ws = {
      * Attempts to establish communication with the specified
      * web-socket endpoint. If successfull, will call 
      */
-    /*
-    * ws.initialize(endpoint, subs): conecta al endpoint WebSocket
-    * (/ws) usando STOMP y se suscribe a los canales de la lista subs
-    * Tiene reintento automático (hasta 3 veces)
-    */
     initialize: (endpoint, subs = []) => {
         try {
             ws.stompClient = Stomp.client(endpoint);
@@ -64,10 +48,6 @@ const ws = {
         }
     },
 
-    /*
-    * ws.subscribe(channel): suscribe al canal y llama ws.receive()
-    * cada vez que llega un mensaje JSON
-    */
     subscribe: (sub) => {
         try {
             ws.stompClient.subscribe(sub,
@@ -80,11 +60,12 @@ const ws = {
 }
 
 /**
- * Sends an "ajax" request using Fetch. Sends JSON and expects JSON back.
+ * Sends an "ajax" request using Fetch. Expects JSON back.
  * 
  * @param {string} url 
  * @param {string} method (GET|POST)
  * @param {*} data, typically a JSON-izable object, like a Message
+ *                a FormData (sent as multipart) or URLSearchParams (sent as normal form)
  * @param {*} headers, to be used instead of defaults, if specified. To send NO headers,
  *  use {}. To send defaults, specify no value, or use false
  * 
@@ -98,27 +79,27 @@ const ws = {
  *     text: <describing the error>
  *  }
  */
-
-/*
-* Wrapper sobre fetch() que:
-* · Serializa data a JSON automáticamente
-* · Añade el header CSRF (X-CSRF-TOKEN) en todas las peticiones POST
-* · Devuelve una Promise que resuelve con el JSON de respuesta
-* · En caso de error (status != ok), rechaza con {url, data, status, text}
-*/
 function go(url, method, data = {}, headers = false) {
+    const isFormData = data instanceof FormData;
+    const isURLSearchParams = data instanceof URLSearchParams;
     let params = {
         method: method, // POST, GET, POST, PUT, DELETE, etc.
-        headers: headers === false ? {
-            "Content-Type": "application/json; charset=utf-8",
-        } : headers,
-        body: data instanceof FormData ? data : JSON.stringify(data)
+        headers: headers || {},
+        body: isFormData ? data : isURLSearchParams ? data : JSON.stringify(data)
     };
     if (method === "GET") {
-        // GET requests cannot have body; I could URL-encode, but it would not be used here
+        // GET requests cannot have body, so data goes into query params
         delete params.body;
+        url += "?" + new URLSearchParams(data).toString();
     } else {
         params.headers["X-CSRF-TOKEN"] = config.csrf.value;
+        if (isFormData && !headers) {
+          // NOTE: must *not* set multipart/form-data, as browser will set it with the correct boundary; and if we set it, it will be sent without boundary, and server will not understand it
+        } else if (isURLSearchParams && !headers) {
+          params.headers["Content-Type"] = "application/x-www-form-urlencoded; charset=utf-8";
+        } else if (!headers) {
+          params.headers["Content-Type"] = "application/json; charset=utf-8";
+        }
     }
     console.log("sending", url, params)
     return fetch(url, params)

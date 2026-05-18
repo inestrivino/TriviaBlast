@@ -33,11 +33,11 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import es.ucm.fdi.iw.controller.DTOs.AnswerReqDTO;
-import es.ucm.fdi.iw.controller.DTOs.AnswerResDTO;
-import es.ucm.fdi.iw.controller.DTOs.GameSetupDTO;
-import es.ucm.fdi.iw.controller.DTOs.QuestionDataPrivateDTO;
-import es.ucm.fdi.iw.controller.DTOs.QuestionDataPublicDTO;
+import es.ucm.fdi.iw.controller.dtos.AnswerReqDTO;
+import es.ucm.fdi.iw.controller.dtos.AnswerResDTO;
+import es.ucm.fdi.iw.controller.dtos.GameSetupDTO;
+import es.ucm.fdi.iw.controller.dtos.QuestionDataPrivateDTO;
+import es.ucm.fdi.iw.controller.dtos.QuestionDataPublicDTO;
 import es.ucm.fdi.iw.model.Game;
 import es.ucm.fdi.iw.model.Message;
 import es.ucm.fdi.iw.model.User;
@@ -45,17 +45,16 @@ import jakarta.persistence.EntityManager;
 import jakarta.servlet.http.HttpSession;
 import jakarta.transaction.Transactional;
 
-
 /**
-* CONTROLLER DE PARTIDAS 
-
-* Gestiona tanto las partidas individuales como
-* las multijugador y el lobby en tiempo real vía WebSocket
-* Ruta base: /game/**
-
-* Limitar el número de jugadores en el lobby: en joinLobby(), comprobar
-* players.size() antes de añadir y devolver error si se superó el límite.
-*/
+ * CONTROLLER DE PARTIDAS
+ * 
+ * Gestiona tanto las partidas individuales como
+ * las multijugador y el lobby en tiempo real vía WebSocket
+ * Ruta base: /game/**
+ * 
+ * Limitar el número de jugadores en el lobby: en joinLobby(), comprobar
+ * players.size() antes de añadir y devolver error si se superó el límite.
+ */
 
 @Controller
 @RequestMapping("/game")
@@ -78,23 +77,20 @@ public class GameController {
     @ModelAttribute
     public void populateModel(HttpSession session, Model model) {
         for (String name : new String[] { "u", "url", "ws", "topics" }) {
-        model.addAttribute(name, session.getAttribute(name));
+            model.addAttribute(name, session.getAttribute(name));
         }
     }
-
-
-
 
     // SINGLE PLAYER
 
     /*
-    * Llama a OpenTDB con los parámetros de GameSetupDTO, construye la
-    * lista de preguntas mezclando respuestas correctas e incorrectas,
-    * guarda las preguntas COMPLETAS (con respuesta correcta) en sesión
-    * como "questions" (List<QuestionDataPrivateDTO>), y manda al
-    * frontend solo QuestionDataPublicDTO (sin la respuesta correcta)
-    * Renderiza single_game.html
-    */
+     * Llama a OpenTDB con los parámetros de GameSetupDTO, construye la
+     * lista de preguntas mezclando respuestas correctas e incorrectas,
+     * guarda las preguntas COMPLETAS (con respuesta correcta) en sesión
+     * como "questions" (List<QuestionDataPrivateDTO>), y manda al
+     * frontend solo QuestionDataPublicDTO (sin la respuesta correcta)
+     * Renderiza single_game.html
+     */
     @PostMapping("/start_single_game")
     public String startGame(@ModelAttribute GameSetupDTO setup,
             Model model,
@@ -138,11 +134,11 @@ public class GameController {
     }
 
     /*
-    * Recibe{questionId, answer} del frontend
-    * Comprueba contra las preguntas guardadas en sesión
-    * Si es correcta, suma 10 puntos al User en la BD
-    * Devuelve {correct, correctAnswer} como JSON
-    */
+     * Recibe{questionId, answer} del frontend
+     * Comprueba contra las preguntas guardadas en sesión
+     * Si es correcta, suma 10 puntos al User en la BD
+     * Devuelve {correct, correctAnswer} como JSON
+     */
     @PostMapping("/answer")
     @ResponseBody
     @Transactional
@@ -173,9 +169,6 @@ public class GameController {
         return new AnswerResDTO(isCorrect, q.getCorrectAnswer());
     }
 
-
-
-
     // MULTI PLAYER
 
     // Crea una nueva partida Game en la BD con código único de 4 chars,
@@ -184,10 +177,10 @@ public class GameController {
     @Transactional
     public String createMultiGame(HttpSession session) {
 
-        User u = (User)session.getAttribute("u");
+        User u = (User) session.getAttribute("u");
         u = entityManager.find(User.class, u.getId());
 
-        Game game=new Game();
+        Game game = new Game();
         game.setCategories(null);
         game.setCode(UserController.generateRandomBase64Token(4));
         game.setDifficulty("Easy");
@@ -208,18 +201,31 @@ public class GameController {
     // Carga la partida por código y renderiza multi_game.html
     @GetMapping("/multi_game/{code}")
     public String multiGame(@PathVariable String code, Model model, HttpSession session) {
-        Game game = entityManager.createNamedQuery("Game.byCode", Game.class)
-            .setParameter("code", code)
-            .getSingleResult();
+        Game game;
+        try {
+            game = entityManager.createNamedQuery("Game.byCode", Game.class)
+                    .setParameter("code", code)
+                    .getSingleResult();
+        } catch (Exception e) {
+            // partida dummy para debug visual del HTML
+            game = new Game();
+            game.setCode("DEBUG");
+        }
 
+        User currentUser = (User) session.getAttribute("u");
+        if (currentUser == null) {
+            return "redirect:/login";
+        }
+        
+        System.out.println("CODE RECIBIDO = " + code);
+        System.out.println("GAME = " + game.getCode());
+        System.out.println("USER = " + currentUser.getUsername());
+        model.addAttribute("user", currentUser);
         model.addAttribute("game", game);
-        session.setAttribute("topics", code);
+        session.setAttribute("topics", game.getCode());
 
         return "multi_game";
     }
-
-
-
 
     // CHAT (AJAX)
 
@@ -228,33 +234,33 @@ public class GameController {
     @Transactional // para no recibir resultados inconsistentes
     @ResponseBody // para indicar que no devuelve vista, sino un objeto (jsonizado)
     public List<Message.Transfer> retrieveMessages(HttpSession session, @PathVariable String code) {
-        //long userId = ((User) session.getAttribute("u")).getId();
+        // long userId = ((User) session.getAttribute("u")).getId();
         Game g = entityManager.createNamedQuery("Game.byCode", Game.class)
                 .setParameter("code", code)
                 .getSingleResult();
         return g.getMessages().stream()
-            .map(Message::toTransfer)
-            .collect(Collectors.toList());
+                .map(Message::toTransfer)
+                .collect(Collectors.toList());
     }
 
     /**
-   * Posts a message to a game.
-   * 
-   * @param code of target game (source user is from ID)
-   * @param o  JSON-ized message, similar to {"message": "text goes here"}
-   * @throws JsonProcessingException
-   */
+     * Posts a message to a game.
+     * 
+     * @param code of target game (source user is from ID)
+     * @param o    JSON-ized message, similar to {"message": "text goes here"}
+     * @throws JsonProcessingException
+     */
 
     // Guarda un mensaje en BD y lo emite por WebSocket a /topic/{code}
     @PostMapping("/{code}/msg")
     @ResponseBody
     @Transactional
     public String postMsg(@PathVariable String code,
-        @RequestBody JsonNode o, Model model, HttpSession session)
-        throws JsonProcessingException {
+            @RequestBody JsonNode o, Model model, HttpSession session)
+            throws JsonProcessingException {
 
         String text = o.get("message").asText();
-        User u = (User)session.getAttribute("u");
+        User u = (User) session.getAttribute("u");
         u = entityManager.find(User.class, u.getId());
         Game g = entityManager.createNamedQuery("Game.byCode", Game.class)
                 .setParameter("code", code)
@@ -279,9 +285,6 @@ public class GameController {
         return "{\"result\": \"message sent.\"}";
     }
 
-
-
-
     // LOBBY
 
     private static final ConcurrentHashMap<String, List<String>> lobbyPlayers = new ConcurrentHashMap<>();
@@ -290,8 +293,8 @@ public class GameController {
     @GetMapping("/lobby/{code}")
     public String showLobby(@PathVariable String code, Model model, HttpSession session) {
         Game game = entityManager.createNamedQuery("Game.byCode", Game.class)
-            .setParameter("code", code)
-            .getSingleResult();
+                .setParameter("code", code)
+                .getSingleResult();
         model.addAttribute("game", game);
 
         User u = (User) session.getAttribute("u");
@@ -309,8 +312,8 @@ public class GameController {
             Model model, HttpSession session) {
         try {
             entityManager.createNamedQuery("Game.byCode", Game.class)
-                .setParameter("code", gameCode)
-                .getSingleResult();
+                    .setParameter("code", gameCode)
+                    .getSingleResult();
             return "redirect:/game/lobby/" + gameCode;
         } catch (Exception e) {
             model.addAttribute("error", "Código de partida inválido: " + gameCode);
@@ -423,5 +426,5 @@ public class GameController {
         resp.put("status", "started");
         return resp;
     }
-  
+
 }

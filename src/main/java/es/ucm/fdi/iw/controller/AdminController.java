@@ -70,7 +70,7 @@ public class AdminController {
   }
 
   /*
-  * Cambia el campo visibilityState del usuario (true/false)
+  * Cambia el campo enabled del usuario (true/false)
   * Un usuario oculto no aparece en el scoreboard para otros usuarios
   * Devuelve JSON con el nuevo estado. Llamado desde triviablast.js
   * mediante fetch() (sin recargar la página)
@@ -87,14 +87,14 @@ public class AdminController {
         return Map.of("error", "UserNotFound");
       }
 
-      user.setVisibilityState(!user.isVisibilityState());
+      user.setEnabled(!user.isEnabled());
       entityManager.merge(user);
 
-      log.info("Toggled visibility for user {}: now {}", user.getUsername(), user.isVisibilityState());
+      log.info("Toggled visibility for user {}: now {}", user.getUsername(), user.isEnabled());
 
       return Map.of(
           "userId", user.getId(),
-          "visibilityState", user.isVisibilityState());
+          "enabled", user.isEnabled());
 
     } catch (Exception e) {
       log.error("Error toggling visibility for user ID: " + userId, e);

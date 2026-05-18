@@ -42,80 +42,7 @@ function initAuthToggle() {
     };
 }
 
-/* =========================
-   BOARD (SVG Game Board)
-========================= */
-/*
-* Dibuja el tablero SVG de 8x8 con la librería SVG.js cuando
-* existe el elemento #tablero-container. El tablero recorre
-* las casillas en espiral numerándolas del 1 al 64. Se redibuja
-* al cambiar el tamaño de la ventana (responsive)
-*/
-function initBoard() {
-    const container = document.getElementById('tablero-container');
-    if (!container || typeof SVG === "undefined") return;
 
-    const draw = SVG().addTo('#tablero-container').size('100%', '100%');
-
-    const filas = 8;
-    const columnas = 8;
-
-    function redrawBoard() {
-
-        const header = document.querySelector('header');
-        const footer = document.querySelector('footer');
-
-        const headerHeight = header ? header.offsetHeight : 0;
-        const footerHeight = footer ? footer.offsetHeight : 0;
-
-        const availableHeight = window.innerHeight - headerHeight - footerHeight - 32;
-        const availableWidth = container.parentElement.clientWidth;
-
-        const boardSize = Math.min(availableWidth, availableHeight);
-
-        container.style.width = boardSize + 'px';
-        container.style.height = boardSize + 'px';
-
-        const cellSize = Math.floor(boardSize / filas);
-
-        draw.clear();
-        draw.viewbox(0, 0, columnas * cellSize, filas * cellSize);
-
-        let number = 1;
-        let x = 0, y = 0;
-        let dx = 1, dy = 0;
-        let grid = Array(filas).fill().map(() => Array(columnas).fill(false));
-
-        for (let i = 0; i < filas * columnas; i++) {
-
-            draw.rect(cellSize, cellSize)
-                .move(x * cellSize, y * cellSize)
-                .fill('#e0e0e0')
-                .stroke({ width: 1, color: '#999' });
-
-            draw.text(number.toString())
-                .font({ size: cellSize / 2.5, family: 'Arial', anchor: 'middle' })
-                .center(
-                    x * cellSize + cellSize / 2,
-                    y * cellSize + cellSize / 2
-                );
-
-            grid[y][x] = true;
-            number++;
-
-            if (dx === 1 && (x + dx >= columnas || grid[y][x + dx])) { dx = 0; dy = 1; }
-            else if (dy === 1 && (y + dy >= filas || grid[y + dy][x])) { dx = -1; dy = 0; }
-            else if (dx === -1 && (x + dx < 0 || grid[y][x + dx])) { dx = 0; dy = -1; }
-            else if (dy === -1 && (y + dy < 0 || grid[y + dy][x])) { dx = 1; dy = 0; }
-
-            x += dx;
-            y += dy;
-        }
-    }
-
-    redrawBoard();
-    window.addEventListener('resize', redrawBoard);
-}
 
 /* =========================
    SCOREBOARD
@@ -147,7 +74,7 @@ function initTableToggleButtons() {
             })
             .then(data => {
                 const tr = button.closest('tr');
-                const isVisible = data.visibilityState; 
+                const isVisible = data.enabled; 
 
                 if (!isVisible) {
                     tr.classList.add('opacity-50');
