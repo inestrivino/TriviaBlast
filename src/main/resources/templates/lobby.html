@@ -144,7 +144,7 @@
             go(`${config.rootUrl}/game/${gameCode}/lobby/join`, "POST")
                 .then(data => {
                     if (data.status === "full") {
-                        setStatus("❌ " + data.message, "danger");
+                        setStatus(data.message, "danger");
                         document.getElementById("leave-btn").textContent = "Volver";
                         return;
                     }

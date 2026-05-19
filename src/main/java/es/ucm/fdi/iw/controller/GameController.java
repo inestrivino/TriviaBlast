@@ -51,9 +51,6 @@ import jakarta.transaction.Transactional;
  * Gestiona tanto las partidas individuales como
  * las multijugador y el lobby en tiempo real vía WebSocket
  * Ruta base: /game/**
- * 
- * Limitar el número de jugadores en el lobby: en joinLobby(), comprobar
- * players.size() antes de añadir y devolver error si se superó el límite.
  */
 
 @Controller
@@ -182,7 +179,7 @@ public class GameController {
 
         Game game = new Game();
         game.setCategories(null);
-        game.setCode(UserController.generateRandomBase64Token(4));
+        game.setCode(UserController.generateGameCode(6));
         game.setDifficulty("Easy");
         game.setGameState("{\"x\" = 42;}");
         game.setHost(u);
