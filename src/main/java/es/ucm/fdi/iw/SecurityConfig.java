@@ -93,11 +93,7 @@ public class SecurityConfig {
 								"/index",
 								"/join_game",
 								"/login",
-								"/multi_game_setup",
-								"/multi_game",
-								"/multi_victoryscr",
-								"/game/join",
-								"/game/lobby/**")
+								"/game/join")
 						.permitAll()
 
 						.requestMatchers("/api/**").permitAll()

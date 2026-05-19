@@ -9,6 +9,7 @@
 <head>
     <th:block th:replace="~{fragments/head :: header}" />
     <title>Multiplayer Game Setup</title>
+    <!---->
     <link rel="stylesheet" th:href="@{/css/simple-datatables-10.css}" href="/css/simple-datatables-10.css"
         type="text/css" />
 </head>
@@ -23,43 +24,65 @@
 
                     <h1 class="mb-5">Multiplayer Game Setup</h1>
 
-                    <div class="mb-4">
-                        <label class="form-label fs-5">Choose a category:</label>
-                        <select class="form-select">
-                            <option selected disabled hidden>Select a category</option>
-                            <option>History</option>
-                            <option>Science</option>
-                            <option>Sports</option>
-                            <option>Art</option>
-                        </select>
-                    </div>
-
-                    <div class="mb-4">
-                        <label class="form-label fs-5">Choose difficulty:</label>
-                        <select class="form-select">
-                            <option selected disabled hidden>Select difficulty</option>
-                            <option>Easy</option>
-                            <option>Medium</option>
-                            <option>Hard</option>
-                        </select>
-                    </div>
-
-                    <div class="mb-5">
-                        <label class="form-label fs-5">Choose number of questions:</label>
-                        <select class="form-select">
-                            <option selected>5</option>
-                            <option>10</option>
-                            <option>15</option>
-                            <option>20</option>
-                        </select>
-                    </div>
-
-                    <button class="btn btn-primary btn-lg px-5">
-                        Start
-                    </button>
-
                     <form th:action="@{/game/multi_game}" method="POST">
-                        <button type="submit">Crear partida</button>
+
+                        <div class="mb-4 text-start">
+
+                            <label class="form-label fs-5">Choose categories:</label>
+
+                            <div class="border rounded p-3" style="max-height: 180px; overflow-y: auto;">
+
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="categories" value="9" id="cat-general">
+                                    <label class="form-check-label" for="cat-general">General Knowledge</label>
+                                </div>
+
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="categories" value="23" id="cat-history">
+                                    <label class="form-check-label" for="cat-history">History</label>
+                                </div>
+
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="categories" value="17" id="cat-science">
+                                    <label class="form-check-label" for="cat-science">Science</label>
+                                </div>
+
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="categories" value="21" id="cat-sports">
+                                    <label class="form-check-label" for="cat-sports">Sports</label>
+                                </div>
+
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="categories" value="25" id="cat-art">
+                                    <label class="form-check-label" for="cat-art">Art</label>
+                                </div>
+
+                            </div>
+                            <small class="text-muted">Si no eliges ninguna, se usarán todas las categorías.</small>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label fs-5">Choose difficulty:</label>
+                            <select class="form-select" name="difficulty">
+                                <option value="">Any difficulty</option>
+                                <option value="easy">Easy</option>
+                                <option value="medium">Medium</option>
+                                <option value="hard">Hard</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-5">
+                            <label class="form-label fs-5">Choose number of questions:</label>
+                            <select class="form-select" name="numQuestions">
+                                <option value="5" selected>5</option>
+                                <option value="10">10</option>
+                                <option value="15">15</option>
+                                <option value="20">20</option>
+                            </select>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-lg px-5">Crear partida</button>
+
                     </form>
 
                 </div>

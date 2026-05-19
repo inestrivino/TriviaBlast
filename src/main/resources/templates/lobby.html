@@ -62,12 +62,10 @@
     <th:block th:replace="~{fragments/footer.html :: footer}" />
 
     <script th:inline="javascript">
-        const gameCode = /*[[${"'" + game.code + "'"}]]*/ "XXXX";
-        const currentUser = /*[[${u != null ? "'" + u.username + "'" : "'Guest'"}]]*/ "Guest";
+        const gameCode = /*[[${game.code}]]*/ "XXXX";
+        const currentUser = /*[[${u != null ? u.username : 'Guest'}]]*/ "Guest";
         const isHost = /*[[${isHost}]]*/ false;
-        const hostUsername = /*[[${"'" + game.host.username + "'"}]]*/ "HOST";
-
-        // WEBSOCKET SIN SockJS — conexión nativa STOMP
+        const hostUsername = /*[[${game.host.username}]]*/ "HOST";
 
         const lobbyTopic = `/topic/${gameCode}`;
         let stompConnected = false;
@@ -82,6 +80,20 @@
             // Join lobby via AJAX first
             joinLobby();
 
+            // si el WS no llega, redirige igual
+            if (!isHost) {
+                const pollInterval = setInterval(() => {
+                    go(`${config.rootUrl}/game/${gameCode}/lobby/status`, "GET")
+                        .then(d => {
+                            if (d.started) {
+                                clearInterval(pollInterval);
+                                window.location.href = config.rootUrl + "/game/multi_game/" + gameCode;
+                            }
+                        })
+                        .catch(() => {});
+                }, 2000);
+            }
+
             // Start button (host only)
             const startBtn = document.getElementById("start-btn");
             if (startBtn) {
@@ -90,7 +102,12 @@
                     startBtn.textContent = "Iniciando...";
                     go(`${config.rootUrl}/game/${gameCode}/lobby/start`, "POST")
                         .then(d => {
-                            if (d.status !== "started") {
+                            if (d.status === "started") {
+                                setStatus("¡Partida iniciada! Redirigiendo...", "success");
+                                setTimeout(() => {
+                                    window.location.href = config.rootUrl + "/game/multi_game/" + gameCode;
+                                }, 800);
+                            } else {
                                 setStatus("Error al iniciar: " + (d.message || "desconocido"), "danger");
                                 startBtn.disabled = false;
                                 startBtn.textContent = "Iniciar partida";
@@ -126,12 +143,16 @@
         function joinLobby() {
             go(`${config.rootUrl}/game/${gameCode}/lobby/join`, "POST")
                 .then(data => {
+                    if (data.status === "full") {
+                        setStatus("❌ " + data.message, "danger");
+                        document.getElementById("leave-btn").textContent = "Volver";
+                        return;
+                    }
                     renderPlayers(data.players);
                     setStatus(`Bienvenido, ${data.username}! Sala lista.`, "success");
                 })
                 .catch(err => {
                     console.error("Error joining lobby:", err);
-                    // Fallback: load player list anyway
                     loadPlayers();
                     setStatus("Conectado (modo limitado)", "warning");
                 });

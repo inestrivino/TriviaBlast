@@ -190,7 +190,7 @@ public class GameController {
         game.setNumPlayers(1);
         game.setNumQuestions(5);
 
-        u.getPartidasCreadas().add(game);
+        // u.getPartidasCreadas().add(game);
 
         entityManager.persist(game);
         entityManager.flush();
@@ -302,6 +302,7 @@ public class GameController {
         model.addAttribute("isHost", isHost);
 
         session.setAttribute("topics", code);
+        model.addAttribute("topics", code);
 
         return "lobby";
     }
@@ -333,6 +334,12 @@ public class GameController {
         lobbyPlayers.computeIfAbsent(code, k -> new ArrayList<>());
         List<String> players = lobbyPlayers.get(code);
         if (!players.contains(username)) {
+            if (players.size() >= 4) {
+                Map<String, Object> fullResp = new HashMap<>();
+                fullResp.put("status", "full");
+                fullResp.put("message", "La sala está llena (máximo 4 jugadores)");
+                return fullResp;
+            }
             players.add(username);
         }
 
@@ -404,16 +411,26 @@ public class GameController {
                 .setParameter("code", code)
                 .getSingleResult();
 
-        if (u == null || game.getHost().getId() != u.getId()) {
+        Long hostId = (Long) entityManager
+            .createQuery("SELECT g.host.id FROM Game g WHERE g.code = :code")
+            .setParameter("code", code)
+            .getSingleResult();
+
+        log.info("startLobbyGame: code={}, userId={}, hostId={}", code, u.getId(), hostId);
+
+        if (hostId == null || !hostId.equals(u.getId())) {
             Map<String, Object> errorResp = new HashMap<>();
             errorResp.put("status", "error");
             errorResp.put("message", "Only the host can start the game");
             return errorResp;
         }
 
+        // marca la partida como iniciada en BD
+        game.setInternalState("STARTED");
+
         Map<String, Object> wsMsg = new HashMap<>();
         wsMsg.put("type", "game_start");
-        wsMsg.put("redirect", "/game/multi_game/" + code + "/play");
+        wsMsg.put("redirect", "/game/multi_game/" + code);
 
         try {
             String json = new ObjectMapper().writeValueAsString(wsMsg);
@@ -424,6 +441,22 @@ public class GameController {
 
         Map<String, Object> resp = new HashMap<>();
         resp.put("status", "started");
+        return resp;
+    }
+
+
+    @GetMapping(path = "/{code}/lobby/status", produces = "application/json")
+    @ResponseBody
+    public Map<String, Object> getLobbyStatus(@PathVariable String code) {
+        Map<String, Object> resp = new HashMap<>();
+        try {
+            Game game = entityManager.createNamedQuery("Game.byCode", Game.class)
+                    .setParameter("code", code)
+                    .getSingleResult();
+            resp.put("started", "STARTED".equals(game.getInternalState()));
+        } catch (Exception e) {
+            resp.put("started", false);
+        }
         return resp;
     }
 
