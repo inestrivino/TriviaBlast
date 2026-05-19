@@ -176,7 +176,29 @@
                 setTimeout(() => {
                     window.location.href = msg.redirect || (config.rootUrl + "/game/multi_game/" + gameCode);
                 }, 1000);
+            } else if (msg.type === "player_kicked") {
+                renderPlayers(msg.players);
+                if (msg.kickedPlayer === currentUser) {
+                    setStatus("Has sido expulsado del lobby por el host.", "danger");
+                    setTimeout(() => {
+                        window.location.href = config.rootUrl + "/";
+                    }, 2000);
+                } else {
+                    setStatus(`${msg.kickedPlayer} ha sido expulsado del lobby.`, "warning");
+                }
             }
+        }
+     
+        // Expulsar jugador (solo host)
+        function kickPlayer(username) {
+            if (!confirm(`¿Seguro que quieres expulsar a ${username}?`)) return;
+            go(`${config.rootUrl}/game/${gameCode}/lobby/kick/${encodeURIComponent(username)}`, "POST")
+                .then(d => {
+                    if (d.status === "error") {
+                        setStatus("Error: " + d.message, "danger");
+                    }
+                })
+                .catch(e => console.error("Error kicking player:", e));
         }
 
         function escapeHtml(str) {
@@ -200,8 +222,12 @@
                     const isMe = p === currentUser;
                     const hostBadge = (p === hostUsername) ? ' <span class="badge bg-warning text-dark ms-1">Host</span>' : '';
                     const meBadge = isMe ? ' <span class="badge bg-info ms-1">Tú</span>' : '';
+                    const kickBtn = (isHost && p !== currentUser)
+                        ? `<button class="btn btn-outline-danger btn-sm ms-2" onclick="kickPlayer('${escapeHtml(p)}')">✕ Expulsar</button>`
+                        : '';
                     return `<li class="list-group-item d-flex align-items-center justify-content-between">
                         <span> ${escapeHtml(p)}${hostBadge}${meBadge}</span>
+                        ${kickBtn}
                     </li>`;
                 }).join("");
             }

@@ -441,6 +441,65 @@ public class GameController {
         return resp;
     }
 
+    // Solo el host puede llamar esto. Expulsa a un jugador del lobby y emite
+    // "player_kicked" por WebSocket con el nombre del jugador expulsado
+    @PostMapping("/{code}/lobby/kick/{username}")
+    @ResponseBody
+    public Map<String, Object> kickPlayer(
+            @PathVariable String code,
+            @PathVariable String username,
+            HttpSession session) {
+
+        User u = (User) session.getAttribute("u");
+
+        Game game;
+        try {
+            game = entityManager.createNamedQuery("Game.byCode", Game.class)
+                    .setParameter("code", code)
+                    .getSingleResult();
+        } catch (Exception e) {
+            Map<String, Object> err = new HashMap<>();
+            err.put("status", "error");
+            err.put("message", "Partida no encontrada");
+            return err;
+        }
+
+        if (u == null || game.getHost().getId() != u.getId()) {
+            Map<String, Object> err = new HashMap<>();
+            err.put("status", "error");
+            err.put("message", "Solo el host puede expulsar jugadores");
+            return err;
+        }
+
+        if (username.equals(u.getUsername())) {
+            Map<String, Object> err = new HashMap<>();
+            err.put("status", "error");
+            err.put("message", "No puedes expulsarte a ti mismo");
+            return err;
+        }
+
+        List<String> players = lobbyPlayers.getOrDefault(code, new ArrayList<>());
+        players.remove(username);
+
+        Map<String, Object> wsMsg = new HashMap<>();
+        wsMsg.put("type", "player_kicked");
+        wsMsg.put("kickedPlayer", username);
+        wsMsg.put("players", players);
+
+        try {
+            String json = new ObjectMapper().writeValueAsString(wsMsg);
+            messagingTemplate.convertAndSend("/topic/" + code, json);
+        } catch (Exception e) {
+            log.error("Error broadcasting kick", e);
+        }
+
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("status", "kicked");
+        resp.put("kickedPlayer", username);
+        resp.put("players", players);
+        return resp;
+    }
+
 
     @GetMapping(path = "/{code}/lobby/status", produces = "application/json")
     @ResponseBody
