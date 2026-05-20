@@ -6,7 +6,9 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -39,7 +41,6 @@ import jakarta.persistence.EntityManager;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import jakarta.transaction.Transactional;
-
 
 /**
 * CONTROLLER REST / API 
@@ -74,7 +75,7 @@ public class ApiController {
    * @param message
    * @return {"code" = "<message>"}
    */
-  
+
   // Endpoint de prueba. Devuelve {code: "<message>"}
   @GetMapping("/status/{message}")
   public Map<String, String> check(@PathVariable String message) {
@@ -88,31 +89,33 @@ public class ApiController {
    * @return {"code" = "<message>"}
    */
 
-// Devuelve {count: N} con el número total de usuarios en la BD
-@GetMapping("/users/count")
-public Map<String, Long> usersCount() {
+  // Devuelve {count: N} con el número total de usuarios en la BD
+  @GetMapping("/users/count")
+  public Map<String, Long> usersCount() {
     return Map.of("count",
         (Long) entityManager.createQuery("SELECT COUNT(u) FROM User u").getSingleResult());
-}
+  }
 
   /**
-   * Loads a file from the classpath. 
+   * Loads a file from the classpath.
    * This works even if the file is in a JAR.
+   * 
    * @param path - path to the file - **relative to target/classes**
    * @return the file
    */
 
   // carga un fichero del classpath (dentro del JAR)
   private File loadFromClasspath(String path) {
-      try {
-          return ResourceUtils.getFile("classpath:"+path);
-      } catch (FileNotFoundException e) {
-          throw new RuntimeException("Could not load file from classpath: "+path, e);
-      }
+    try {
+      return ResourceUtils.getFile("classpath:" + path);
+    } catch (FileNotFoundException e) {
+      throw new RuntimeException("Could not load file from classpath: " + path, e);
+    }
   }
 
   /**
    * Executes JS code using karate-js
+   * 
    * @param text
    * @param vars
    * @return
@@ -124,29 +127,29 @@ public Map<String, Long> usersCount() {
     Node node = parser.parse();
     Context context = Context.root();
     if (vars != null) {
-        vars.forEach((k, v) -> context.declare(k, v));
+      vars.forEach((k, v) -> context.declare(k, v));
     }
     return Interpreter.eval(node, context);
   }
 
-  /** 
+  /**
    * Executes JS code loaded from a file in the server
    */
 
   /*
-  * Carga el fichero static/js/js-eval.js del classpath, lo ejecuta
-  * con el intérprete karate-js (motor JS embebido en Java) y devuelve
-  * el resultado
-  */
+   * Carga el fichero static/js/js-eval.js del classpath, lo ejecuta
+   * con el intérprete karate-js (motor JS embebido en Java) y devuelve
+   * el resultado
+   */
   @GetMapping(value = "/js", produces = MediaType.APPLICATION_JSON_VALUE)
-  public Map<String,String> testJs() throws Exception{
+  public Map<String, String> testJs() throws Exception {
     String start = Files.readString(
-      loadFromClasspath("static/js/js-eval.js").toPath());
+        loadFromClasspath("static/js/js-eval.js").toPath());
     String source = start + "\n" + "f(v);";
 
     Object result = eval(source, Map.of(
-      "v", 10, 
-      "exampleExternalVar", "patata"));
+        "v", 10,
+        "exampleExternalVar", "patata"));
     return Map.of("result", result.toString());
   }
 
@@ -157,7 +160,7 @@ public Map<String, Long> usersCount() {
    * Posts a message to a game.
    * 
    * @param code of target game (source user is from ID)
-   * @param o  JSON-ized message, similar to {"message": "text goes here"}
+   * @param o    JSON-ized message, similar to {"message": "text goes here"}
    * @throws JsonProcessingException
    */
 
@@ -166,7 +169,7 @@ public Map<String, Long> usersCount() {
   @PostMapping("/game/{code}")
   @ResponseBody
   @Transactional
-  public Map<String,String> postMsg(@PathVariable String code,
+  public Map<String, String> postMsg(@PathVariable String code,
       @RequestBody JsonNode o, Model model, HttpSession session,
       HttpServletResponse response)
       throws JsonProcessingException {
@@ -174,13 +177,40 @@ public Map<String, Long> usersCount() {
     String text = o.get("message").asText();
     User sender = entityManager.find(
         User.class, ((User) session.getAttribute("u")).getId());
+
     Game target = entityManager.createQuery(
         "SELECT g FROM Game g WHERE g.code = :code", Game.class)
         .setParameter("code", code)
-        .getSingleResult(); 
+        .getSingleResult();
+
+    // Parse internal state
+    ObjectMapper objectMapper = new ObjectMapper();
+
+    Map<String, Object> state;
+    try {
+      String internalState = target.getInternalState();
+
+      if (internalState == null || internalState.isBlank()) {
+        state = Map.of("players", List.of());
+      } else {
+        state = objectMapper.readValue(
+            internalState,
+            new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {
+            });
+      }
+
+    } catch (Exception e) {
+      throw new RuntimeException("Invalid internal state", e);
+    }
+
+    // Extract players list
+    List<Map<String, Object>> players = (List<Map<String, Object>>) state.getOrDefault("players", List.of());
 
     // verify permissions
-    if (! sender.hasRole("ADMIN") && ! target.getPlayers().contains(sender)) {
+    boolean isInGame = players.stream()
+        .anyMatch(p -> Objects.equals(sender.getId(), ((Number) p.get("id")).longValue()));
+
+    if (!sender.hasRole("ADMIN") && !isInGame) {
       response.setStatus(HttpServletResponse.SC_FORBIDDEN);
       return Map.of("error", "user not in group");
     }
@@ -201,38 +231,63 @@ public Map<String, Long> usersCount() {
     return Map.of("result", "message sent");
   }
 
-    /**
+  /**
    * Posts a message to a game.
    * 
    * @param code of target game (source user is from ID)
-   * @param o  JSON-ized message, similar to {"message": "text goes here"}
+   * @param o    JSON-ized message, similar to {"message": "text goes here"}
    * @throws JsonProcessingException
    */
 
-  // Devuelve todos los mensajes de una partida como JSON (solo si tienes permiso)
   @GetMapping("/game/{code}")
   @ResponseBody
   @Transactional
-  public Map<String,String> getMessages(@PathVariable String code, HttpSession session,
-        HttpServletResponse response)
+  public Map<String, String> getMessages(@PathVariable String code, HttpSession session,
+      HttpServletResponse response)
       throws JsonProcessingException {
 
-      User requester = entityManager.find(
-          User.class, ((User) session.getAttribute("u")).getId());
-      Game target = entityManager.createQuery(
+    User requester = entityManager.find(
+        User.class, ((User) session.getAttribute("u")).getId());
+
+    Game target = entityManager.createQuery(
         "SELECT g FROM Game g WHERE g.code = :code", Game.class)
         .setParameter("code", code)
-        .getSingleResult();  
-  
-      // verify permissions
-      if (! requester.hasRole("ADMIN") && ! target.getPlayers().contains(requester)) {
-        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-        return Map.of("error", "user not in group");
-      } 
-      // return result
-      return Map.of("messages", new ObjectMapper().writeValueAsString(
-        target.getMessages().stream()
-          .map(Message::toTransfer).toArray()
-      ));
+        .getSingleResult();
+
+    ObjectMapper mapper = new ObjectMapper();
+
+    Map<String, Object> state;
+    try {
+      String internalState = target.getInternalState();
+
+      if (internalState == null || internalState.isBlank()) {
+        state = Map.of("players", List.of());
+      } else {
+        state = mapper.readValue(internalState, Map.class);
+      }
+    } catch (Exception e) {
+      throw new RuntimeException("Invalid internalState", e);
+    }
+
+    List<Map<String, Object>> players = (List<Map<String, Object>>) state.getOrDefault("players", List.of());
+
+    boolean isInGame = players.stream().anyMatch(p -> Objects.equals(
+        requester.getId(),
+        ((Number) p.get("id")).longValue()));
+
+    // verify permissions
+    if (!requester.hasRole("ADMIN") && !isInGame) {
+      response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+      return Map.of("error", "user not in group");
+    }
+
+    // return result
+    ObjectMapper outMapper = new ObjectMapper();
+
+    return Map.of("messages",
+        outMapper.writeValueAsString(
+            target.getMessages().stream()
+                .map(Message::toTransfer)
+                .toArray()));
   }
 }

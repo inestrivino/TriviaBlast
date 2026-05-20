@@ -1,24 +1,27 @@
 package es.ucm.fdi.iw.model;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Set;
+
+import es.ucm.fdi.iw.controller.TriviaCategory;
+
 import java.util.List;
 
 import jakarta.persistence.*;
 import lombok.Data;
 
-
 /**
-* ENTIDAD PARTIDA 
-
-* Representa una partida multijugador
-* Se mapea a la tabla "Game"
-*/
+ * ENTIDAD PARTIDA
+ * 
+ * Representa una partida multijugador
+ * Se mapea a la tabla "Game"
+ */
 
 // busca una partida por su código único
 @NamedQueries({
-    @NamedQuery(name = "Game.byCode", query = "SELECT g FROM Game g "
-        + "WHERE g.code = :code"),
+        @NamedQuery(name = "Game.byCode", query = "SELECT g FROM Game g "
+                + "WHERE g.code = :code"),
 })
 @Entity
 @Data
@@ -29,22 +32,21 @@ public class Game {
     @SequenceGenerator(name = "game_gen", sequenceName = "game_seq", allocationSize = 1)
     private long id;
 
-    @Column(nullable = false)
-    private int numQuestions;
-
-    @ElementCollection
+    @ElementCollection(targetClass = TriviaCategory.class)
+    @Enumerated(EnumType.STRING)
     @CollectionTable(name = "game_categories", joinColumns = @JoinColumn(name = "game_id"))
-    private Set<String> categories;
+    @Column(name = "category")
+    private Set<TriviaCategory> categories = new HashSet<>();
 
     @Column(nullable = false)
     private String difficulty;
 
-    // Note: code attribute being unique is not ideal as it means that there is a reachable limit in number of possible codes. However, JPA does not support (to our knowledge) conditional keys, and this system allows for 2.1 billion different codes which is enough for our application's current uses
+    // Note: code attribute being unique is not ideal as it means that there is a
+    // reachable limit in number of possible codes. However, JPA does not support
+    // (to our knowledge) conditional keys, and this system allows for 2.1 billion
+    // different codes which is enough for our application's current uses
     @Column(unique = true, nullable = false)
     private String code;
-
-    @Column(nullable = false)
-    private int numPlayers;
 
     @Column(columnDefinition = "TEXT")
     private String internalState; // this is later turned into JSON
@@ -55,17 +57,16 @@ public class Game {
     @JoinColumn(name = "host_id", nullable = false)
     private User host;
 
-    @OneToMany(mappedBy = "game")
-    private List<Player> players = new ArrayList<>();
-
-    @OneToMany(mappedBy = "game", cascade = CascadeType.ALL, orphanRemoval = true) //if game is deleted then messages are deleted too
+    @OneToMany(mappedBy = "game", cascade = CascadeType.ALL, orphanRemoval = true) // if game is deleted then messages
+                                                                                   // are deleted too
     private List<Message> messages = new ArrayList<>();
 
     private static final String CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     private static final int CODE_LENGTH = 6;
     private static final java.security.SecureRandom RANDOM = new java.security.SecureRandom();
 
-    // genera automáticamente el código único de 6 caracteres alfanuméricos justo antes de persistir en BD
+    // genera automáticamente el código único de 6 caracteres alfanuméricos justo
+    // antes de persistir en BD
     @PrePersist
     public void generateCode() {
         if (this.code == null) {

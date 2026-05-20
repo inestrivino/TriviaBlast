@@ -4,8 +4,10 @@ import java.net.Authenticator;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -180,19 +182,25 @@ public class GameController {
     // asigna al usuario actual como host, y redirige al lobby
     @PostMapping("/multi_game")
     @Transactional
-    public String createMultiGame(HttpSession session) throws JsonProcessingException {
+    public String createMultiGame(
+            @RequestParam(required = false) List<Integer> categories,
+            @RequestParam String difficulty,
+            HttpSession session) throws JsonProcessingException {
 
         User u = (User) session.getAttribute("u");
         u = entityManager.find(User.class, u.getId());
 
         Game game = new Game();
-        game.setCategories(null);
+        Set<TriviaCategory> cats = (categories == null || categories.isEmpty())
+                ? EnumSet.allOf(TriviaCategory.class)
+                : categories.stream()
+                        .map(TriviaCategory::fromId)
+                        .collect(Collectors.toSet());
+        game.setCategories(cats);
         game.setCode(UserController.generateGameCode(6));
-        game.setDifficulty("Easy");
+        game.setDifficulty(difficulty);
         game.setGameState("WAITING");
         game.setHost(u);
-        game.setNumPlayers(1);
-        game.setNumQuestions(5);
 
         // Inicializar el estado interno de la partida
         Map<String, Object> initialState = new HashMap<>();

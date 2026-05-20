@@ -17,8 +17,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import es.ucm.fdi.iw.model.Game;
-import es.ucm.fdi.iw.model.Player;
 import es.ucm.fdi.iw.model.Message;
 import es.ucm.fdi.iw.model.Transferable;
 import es.ucm.fdi.iw.model.User;
@@ -105,67 +103,16 @@ public class AdminController {
   /**
    * Returns JSON with all received messages
    */
-  // Devuelve los últimos 5 mensajes del sistema como JSON (Paginado: puedes cambiar setFirstResult/setMaxResults)
+  // Devuelve los últimos 5 mensajes del sistema como JSON 
   @GetMapping(path = "all-messages", produces = "application/json")
   @Transactional // para no recibir resultados inconsistentes
   @ResponseBody // para indicar que no devuelve vista, sino un objeto (jsonizado)
   public List<Message.Transfer> retrieveMessages(HttpSession session) {
     TypedQuery<Message> query = entityManager.createQuery("select m from Message m", Message.class);
     query.setMaxResults(5);
-    query.setFirstResult(0); // para paginar: cambias el 1er resultado
+    query.setFirstResult(0);
     // devuelve resultado
     return query.getResultList().stream().map(Transferable::toTransfer)
         .collect(Collectors.toList());
-  }
-
-  // Crea datos de prueba: 2 partidas y 15 usuarios de prueba asignados a esas partidas. Devuelve JSON
-  @RequestMapping("/populate")
-  @ResponseBody
-  @Transactional
-  public String populate(Model model) {
-
-    // create some groups
-    Game g1 = new Game();
-    g1.setCode(UserController.generateRandomBase64Token(6));
-    g1.setDifficulty("easy");
-    g1.setNumQuestions(10);
-    g1.setNumPlayers(0);
-    g1.setGameState("waiting");
-    entityManager.persist(g1);
-
-    Game g2 = new Game();
-    g2.setCode(UserController.generateRandomBase64Token(6));
-    g2.setDifficulty("easy");
-    g2.setNumQuestions(10);
-    g2.setNumPlayers(0);
-    g2.setGameState("waiting");
-    entityManager.persist(g2);
-
-    // create some users & assign to groups
-    for (int i = 0; i < 15; i++) {
-      User u = new User();
-      u.setUsername("user" + i);
-      u.setPassword(passwordEncoder
-          .encode("aa"));
-      // UserController.generateRandomBase64Token(9)));
-      u.setEnabled(true);
-      u.setRoles("USER");
-      entityManager.persist(u);
-      if (i % 2 == 0) {
-        Player p = new Player();
-        p.setUser(u);
-        p.setGame(g1);
-        p.setPoints(0);
-        entityManager.persist(p);
-      }
-      if (i % 3 == 0) {
-        Player p = new Player();
-        p.setUser(u);
-        p.setGame(g2);
-        p.setPoints(0);
-        entityManager.persist(p);
-      }
-    }
-    return "{\"admin\": \"populated\"}";
   }
 }

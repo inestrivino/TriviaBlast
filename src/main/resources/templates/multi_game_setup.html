@@ -26,58 +26,46 @@
 
                     <form th:action="@{/game/multi_game}" method="POST">
 
-                        <div class="mb-4 text-start">
+                        <div class="mb-4">
 
                             <label class="form-label fs-5">Choose categories:</label>
 
-                            <div class="border rounded p-3" style="max-height: 180px; overflow-y: auto;">
-
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="categories" value="9" id="cat-general">
-                                    <label class="form-check-label" for="cat-general">General Knowledge</label>
+                            <div class="text-start">
+                                <!-- Select all -->
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="selectAll">
+                                    <label class="form-check-label fw-bold" for="selectAll">
+                                        Select all
+                                    </label>
                                 </div>
 
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="categories" value="23" id="cat-history">
-                                    <label class="form-check-label" for="cat-history">History</label>
+                                <hr>
+                                <div class="row">
+                                    <div th:each="cat : ${categories}" class="col-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input category-checkbox" type="checkbox"
+                                                name="categories" th:value="${cat.id}" th:id="'cat-' + ${cat.id}">
+
+                                            <label class="form-check-label" th:for="'cat-' + ${cat.id}"
+                                                th:text="${cat.label}">
+                                            </label>
+                                        </div>
+
+                                    </div>
                                 </div>
 
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="categories" value="17" id="cat-science">
-                                    <label class="form-check-label" for="cat-science">Science</label>
-                                </div>
-
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="categories" value="21" id="cat-sports">
-                                    <label class="form-check-label" for="cat-sports">Sports</label>
-                                </div>
-
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="categories" value="25" id="cat-art">
-                                    <label class="form-check-label" for="cat-art">Art</label>
-                                </div>
-
+                                <small class="text-muted">
+                                    If you don't use any, all categories will be used
+                                </small>
                             </div>
-                            <small class="text-muted">Si no eliges ninguna, se usarán todas las categorías.</small>
                         </div>
 
                         <div class="mb-4">
-                            <label class="form-label fs-5">Choose difficulty:</label>
+                            <label class="form-label fs-5">Choose the game difficulty:</label>
                             <select class="form-select" name="difficulty">
-                                <option value="">Any difficulty</option>
-                                <option value="easy">Easy</option>
+                                <option value="easy" selected>Easy</option>
                                 <option value="medium">Medium</option>
                                 <option value="hard">Hard</option>
-                            </select>
-                        </div>
-
-                        <div class="mb-5">
-                            <label class="form-label fs-5">Choose number of questions:</label>
-                            <select class="form-select" name="numQuestions">
-                                <option value="5" selected>5</option>
-                                <option value="10">10</option>
-                                <option value="15">15</option>
-                                <option value="20">20</option>
                             </select>
                         </div>
 
@@ -91,6 +79,26 @@
     </main>
 
     <th:block th:replace="~{fragments/footer.html :: footer}" />
+
+    <script th:inline="javascript">
+        document.addEventListener("DOMContentLoaded", () => {
+
+            const selectAll = document.getElementById("selectAll");
+            const checkboxes = document.querySelectorAll(".category-checkbox");
+
+            selectAll.addEventListener("change", () => {
+                checkboxes.forEach(cb => cb.checked = selectAll.checked);
+            });
+
+            checkboxes.forEach(cb => {
+                cb.addEventListener("change", () => {
+                    const allChecked = Array.from(checkboxes).every(c => c.checked);
+                    selectAll.checked = allChecked;
+                });
+            });
+
+        });
+    </script>
 
 </body>
 

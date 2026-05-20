@@ -18,7 +18,6 @@ import es.ucm.fdi.iw.controller.dtos.GameSetupDTO;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 
-
 /**
 * CONTROLLER PÚBLICO / RAÍZ 
 
@@ -31,7 +30,6 @@ import jakarta.servlet.http.HttpSession;
 * SecurityConfig como .permitAll()
 */
 
-
 /**
  * Non-authenticated requests only.
  */
@@ -39,7 +37,7 @@ import jakarta.servlet.http.HttpSession;
 public class RootController {
 
     private static final Logger log = LogManager.getLogger(RootController.class);
-    
+
     @ModelAttribute
     public void populateModel(HttpSession session, Model model) {
         for (String name : new String[] { "u", "url", "ws", "topics" }) {
@@ -64,6 +62,7 @@ public class RootController {
     // muestra multi_game_setup.html
     @GetMapping("/multi_game_setup")
     public String multi_game_setup(Model model) {
+        model.addAttribute("categories", TriviaCategory.getAll());
         return "multi_game_setup";
     }
 
@@ -99,12 +98,14 @@ public class RootController {
 
     // muestra single_game_setup.html
     @GetMapping("/single_game_setup")
-    public String single_game_setup(Model model) {
+    public String single_setup(Model model) {
+        model.addAttribute("categories", TriviaCategory.getAll());
         return "single_game_setup";
     }
 
     // llama a la API de OpenTDB con categoría/dificultad/número
-    // de preguntas del formulario, y renderiza single_game.html con los datos de las preguntas
+    // de preguntas del formulario, y renderiza single_game.html con los datos de
+    // las preguntas
     @PostMapping("/start_single_game")
     public String startSingleGame(@ModelAttribute GameSetupDTO setup, Model model) {
 
