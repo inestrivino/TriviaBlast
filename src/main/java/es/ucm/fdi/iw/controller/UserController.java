@@ -49,6 +49,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 
 /**
 * CONTROLLER DE USUARIOS 
@@ -158,7 +160,7 @@ public class UserController {
     return "profile";
   }
 
-  //  hace login programático tras el registro
+  // hace login programático tras el registro
   private void authenticateUser(String username, String rawPassword, HttpSession session) {
     Authentication authenticationRequest = UsernamePasswordAuthenticationToken.unauthenticated(username, rawPassword);
 
@@ -174,9 +176,9 @@ public class UserController {
    * Alter or create a user
    */
   /*
-  * Registra un nuevo usuario. Valida que las contraseñas coincidan,
-  * codifica la contraseña, persiste el User, y hace auto-login
-  */
+   * Registra un nuevo usuario. Valida que las contraseñas coincidan,
+   * codifica la contraseña, persiste el User, y hace auto-login
+   */
   @PostMapping("/register")
   @Transactional
   public String register(
@@ -210,12 +212,13 @@ public class UserController {
    */
 
   /*
-  * * Actualiza el perfil. Distingue tres sub-formularios vía el param "formType":
-  * · "password" → valida contraseña actual, actualiza si coincide
-  * · "userNameEmail"→ actualiza username y/o email
-  * · "avatar" → redirige al endpoint /pic
-  * Solo el propio usuario o un ADMIN pueden modificar un perfil
-  */
+   * * Actualiza el perfil. Distingue tres sub-formularios vía el param
+   * "formType":
+   * · "password" → valida contraseña actual, actualiza si coincide
+   * · "userNameEmail"→ actualiza username y/o email
+   * · "avatar" → redirige al endpoint /pic
+   * Solo el propio usuario o un ADMIN pueden modificar un perfil
+   */
   @PostMapping("/{id}")
   @Transactional
   public String postUser(
@@ -331,34 +334,86 @@ public class UserController {
    */
   // Guarda la foto subida en ./iwdata/user /{id}.jpg
   @PostMapping("{id}/pic")
-  public String setPic(@RequestParam("photo") MultipartFile photo, @PathVariable long id,
-      HttpServletResponse response, HttpSession session, Model model) throws IOException {
+  @Transactional
+  public String setPic(@RequestParam("photo") MultipartFile photo,
+      @PathVariable long id,
+      HttpServletResponse response,
+      HttpSession session,
+      Model model) throws IOException {
 
     User target = entityManager.find(User.class, id);
     model.addAttribute("user", target);
 
     // check permissions
     User requester = (User) session.getAttribute("u");
-    if (requester.getId() != target.getId() &&
-        !requester.hasRole("ADMIN")) {
+    if (requester == null ||
+        (requester.getId() != target.getId() && !requester.hasRole("ADMIN"))) {
       throw new NoEsTuPerfilException();
     }
 
-    log.info("Updating photo for user {}", id);
-    File f = localData.getFile("user", "" + id + ".jpg");
-
     if (photo.isEmpty()) {
-      log.info("failed to upload photo: emtpy file?");
-    } else {
-      try (BufferedOutputStream stream = new BufferedOutputStream(new FileOutputStream(f))) {
-        byte[] bytes = photo.getBytes();
-        stream.write(bytes);
-        log.info("Uploaded photo for {} into {}!", id, f.getAbsolutePath());
-      } catch (Exception e) {
-        response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-        log.warn("Error uploading " + id + " ", e);
-      }
+      log.info("Empty file uploaded for user {}", id);
+      return "redirect:/user/" + id;
     }
+
+    try {
+      // 1. Validación real de imagen
+      BufferedImage img = ImageIO.read(photo.getInputStream());
+      if (img == null) {
+        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        throw new RuntimeException("Invalid image file");
+      }
+
+      // 2. Detectar tipo MIME
+      String contentType = photo.getContentType();
+      String extension;
+
+      if (contentType == null) {
+        throw new RuntimeException("Unknown file type");
+      }
+
+      switch (contentType) {
+        case "image/png" -> extension = ".png";
+        case "image/jpeg" -> extension = ".jpg";
+        case "image/jpg" -> extension = ".jpg";
+        case "image/gif" -> extension = ".gif";
+        default -> throw new RuntimeException("Unsupported image type: " + contentType);
+      }
+
+      // 3. Eliminar avatar anterior si no es default
+      String oldAvatar = target.getAvatar();
+      if (oldAvatar != null &&
+          !oldAvatar.equals("default-pic.jpg")) {
+
+        File oldFile = localData.getFile("user", oldAvatar);
+        if (oldFile.exists()) {
+          boolean deleted = oldFile.delete();
+          if (deleted) {
+            log.info("Deleted old avatar {}", oldAvatar);
+          }
+        }
+      }
+
+      // 4. Guardar nueva imagen
+      String filename = id + extension;
+      File f = localData.getFile("user", filename);
+
+      try (BufferedOutputStream stream = new BufferedOutputStream(new FileOutputStream(f))) {
+        stream.write(photo.getBytes());
+      }
+
+      // 5. Actualizar BD
+      target.setAvatar(filename);
+      entityManager.merge(target);
+
+      log.info("Uploaded new avatar for user {} -> {}", id, filename);
+
+    } catch (Exception e) {
+      log.warn("Error uploading image for user " + id, e);
+      response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+      throw new RuntimeException("Error uploading image", e);
+    }
+
     return "redirect:/user/" + id;
   }
 
@@ -421,7 +476,8 @@ public class UserController {
    * @throws JsonProcessingException
    */
 
-  // Envía un mensaje a otro usuario por WebSocket (/user/{username}/queue/updates)
+  // Envía un mensaje a otro usuario por WebSocket
+  // (/user/{username}/queue/updates)
   @PostMapping("/{id}/msg")
   @ResponseBody
   @Transactional
@@ -488,10 +544,10 @@ public class UserController {
   }
 
   /*
-  * Devuelve la lista de usuarios ordenados por totalPoints.
-  * Los admins ven todos; los usuarios solo ven los que tienen
-  * enabled = true
-  */
+   * Devuelve la lista de usuarios ordenados por totalPoints.
+   * Los admins ven todos; los usuarios solo ven los que tienen
+   * enabled = true
+   */
   @GetMapping("/scoreboard")
   public String scoreboard(Model model) {
     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -516,13 +572,13 @@ public class UserController {
 
   // genera códigos de partida solo con caracteres alfanuméricos
   public static String generateGameCode(int length) {
-      final String CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-      SecureRandom secureRandom = new SecureRandom();
-      StringBuilder sb = new StringBuilder(length);
-      for (int i = 0; i < length; i++) {
-          sb.append(CHARS.charAt(secureRandom.nextInt(CHARS.length())));
-      }
-      return sb.toString();
+    final String CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    SecureRandom secureRandom = new SecureRandom();
+    StringBuilder sb = new StringBuilder(length);
+    for (int i = 0; i < length; i++) {
+      sb.append(CHARS.charAt(secureRandom.nextInt(CHARS.length())));
+    }
+    return sb.toString();
   }
 
 }

@@ -1,15 +1,14 @@
 package es.ucm.fdi.iw.controller;
 
 import java.net.Authenticator;
-import java.net.http.WebSocket;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -31,12 +30,12 @@ import org.springframework.web.client.RestTemplate;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import es.ucm.fdi.iw.controller.dtos.AnswerReqDTO;
 import es.ucm.fdi.iw.controller.dtos.AnswerResDTO;
 import es.ucm.fdi.iw.controller.dtos.GameSetupDTO;
-import es.ucm.fdi.iw.controller.dtos.LobbyPlayerDTO;
 import es.ucm.fdi.iw.controller.dtos.QuestionDataPrivateDTO;
 import es.ucm.fdi.iw.controller.dtos.QuestionDataPublicDTO;
 import es.ucm.fdi.iw.model.Game;
@@ -50,7 +49,7 @@ import jakarta.transaction.Transactional;
  * CONTROLLER DE PARTIDAS
  * 
  * Gestiona tanto las partidas individuales como
- * las multijugador y el lobby en tiempo real vía WebSocket
+ * las multijugador y el lobby
  * Ruta base: /game/**
  */
 
@@ -79,7 +78,11 @@ public class GameController {
         }
     }
 
-    // SINGLE PLAYER
+    /*
+     * ==============
+     * SINGLE PLAYER
+     * ================
+     */
 
     /*
      * Llama a OpenTDB con los parámetros de GameSetupDTO, construye la
@@ -167,13 +170,17 @@ public class GameController {
         return new AnswerResDTO(isCorrect, q.getCorrectAnswer());
     }
 
-    // MULTI PLAYER
+    /*
+     * ==============
+     * MULTI PLAYER
+     * ================
+     */
 
     // Crea una nueva partida Game en la BD con código único de 4 chars,
     // asigna al usuario actual como host, y redirige al lobby
     @PostMapping("/multi_game")
     @Transactional
-    public String createMultiGame(HttpSession session) {
+    public String createMultiGame(HttpSession session) throws JsonProcessingException {
 
         User u = (User) session.getAttribute("u");
         u = entityManager.find(User.class, u.getId());
@@ -184,11 +191,41 @@ public class GameController {
         game.setDifficulty("Easy");
         game.setGameState("WAITING");
         game.setHost(u);
-        game.setInternalState("");
         game.setNumPlayers(1);
         game.setNumQuestions(5);
 
-        // u.getPartidasCreadas().add(game);
+        // Inicializar el estado interno de la partida
+        Map<String, Object> initialState = new HashMap<>();
+
+        // Players: inicializamos con el host como primer jugador
+        List<Map<String, Object>> players = new ArrayList<>();
+        Map<String, Object> hostPlayer = new HashMap<>();
+        hostPlayer.put("id", u.getId());
+        hostPlayer.put("username", u.getUsername());
+        hostPlayer.put("boardPosition", 0);
+        hostPlayer.put("gamePosition", 1);
+        players.add(hostPlayer);
+
+        initialState.put("players", players);
+        initialState.put("currentTurnPlayerId", u.getId());
+
+        // Orden de turnos: inicialmente solo el host
+        Map<Integer, Long> turnOrder = new HashMap<>();
+        turnOrder.put(1, u.getId());
+        initialState.put("turnOrder", turnOrder);
+
+        initialState.put("lastDiceRoll", 0);
+
+        Map<String, Object> turnInfo = new HashMap<>();
+        turnInfo.put("currentStreak", 0);
+        turnInfo.put("questionPending", false);
+        initialState.put("turnInfo", turnInfo);
+
+        // Convertimos a JSON
+        ObjectMapper objectMapper = new ObjectMapper();
+        String jsonState = objectMapper.writeValueAsString(initialState);
+
+        game.setInternalState(jsonState);
 
         entityManager.persist(game);
         entityManager.flush();
@@ -200,27 +237,22 @@ public class GameController {
     @GetMapping("/multi_game/{code}")
     public String multiGame(@PathVariable String code, Model model, HttpSession session) {
         Game game;
-        try {
-            game = entityManager.createNamedQuery("Game.byCode", Game.class)
-                    .setParameter("code", code)
-                    .getSingleResult();
-        } catch (Exception e) {
-            // partida dummy para debug visual del HTML
-            game = new Game();
-            game.setCode("DEBUG");
-        }
+        game = entityManager.createNamedQuery("Game.byCode", Game.class)
+                .setParameter("code", code)
+                .getSingleResult();
+        if (game == null)
+            return "redirect:/";
 
         User currentUser = (User) session.getAttribute("u");
         if (currentUser == null) {
             return "redirect:/login";
         }
+
+        // no se carga la vista de partida si esta no está empezada por el host
         if (!("STARTED").equalsIgnoreCase(game.getGameState().trim())) {
             return "redirect:/game/lobby/" + code;
         }
 
-        System.out.println("CODE RECIBIDO = " + code);
-        System.out.println("GAME = " + game.getCode());
-        System.out.println("USER = " + currentUser.getUsername());
         model.addAttribute("user", currentUser);
         model.addAttribute("game", game);
         session.setAttribute("topics", game.getCode());
@@ -228,7 +260,11 @@ public class GameController {
         return "multi_game";
     }
 
-    // CHAT (AJAX)
+    /*
+     * ==============
+     * CHAT TO DO: MOVER A OTRO CONTROLLER?
+     * ================
+     */
 
     // Devuelve todos los mensajes de la partida como JSON
     @GetMapping(path = "/{code}/msg", produces = "application/json")
@@ -286,9 +322,11 @@ public class GameController {
         return "{\"result\": \"message sent.\"}";
     }
 
-    // LOBBY
-
-    private static final Map<String, List<LobbyPlayerDTO>> lobbyPlayers = new ConcurrentHashMap<>();
+    /*
+     * ==============
+     * LOBBY
+     * ================
+     */
 
     // Muestra lobby.html. Determina si el usuario es el host
     @GetMapping("/lobby/{code}")
@@ -332,79 +370,156 @@ public class GameController {
         }
     }
 
-    // Añade al usuario a la lista en memoria (lobbyPlayers) y emite
-    // un mensaje WebSocket de tipo "lobby_update" a /topic/{code}
-    @PostMapping("/{code}/lobby/join")
+    @PostMapping("/{code}/join")
     @ResponseBody
     @Transactional
-    public Map<String, Object> joinLobby(@PathVariable String code, HttpSession session) {
-
-        User u = (User) session.getAttribute("u");
-        if (u == null) {
+    public Map<String, Object> join(@PathVariable String code, HttpSession session) {
+        User uSession = (User) session.getAttribute("u");
+        if (uSession == null) {
             throw new RuntimeException("No user in session");
         }
+        User u = entityManager.find(User.class, uSession.getId());
 
-        LobbyPlayerDTO player = new LobbyPlayerDTO(u.getId(), u.getUsername());
+        // Recuperamos el juego de la base de datos
+        Game game = entityManager.createNamedQuery("Game.byCode", Game.class)
+                .setParameter("code", code)
+                .getSingleResult();
 
-        // Inicializamos la lista si no existe, usando ConcurrentHashMap.computeIfAbsent
-        List<LobbyPlayerDTO> players = lobbyPlayers.computeIfAbsent(code,
-                k -> Collections.synchronizedList(new ArrayList<>()));
+        ObjectMapper objectMapper = new ObjectMapper();
+        Map<String, Object> state = new HashMap<>();
 
-        synchronized (players) { // bloque sincronizado por la lista específica del lobby
-            boolean alreadyJoined = players.stream()
-                    .anyMatch(p -> p.getId().equals(u.getId()));
+        String internalState = game.getInternalState();
 
-            if (alreadyJoined) {
-                return Map.of("status", "already_joined", "message", "Ya estás en la sala");
+        if (internalState == null || internalState.trim().isEmpty()) {
+            // Inicialización por defecto
+            state.put("players", new ArrayList<Map<String, Object>>());
+            state.put("turnOrder", new LinkedHashMap<Integer, Long>());
+            state.put("currentTurnPlayerId", null);
+            state.put("lastDiceRoll", 0);
+            state.put("turnInfo", Map.of("currentStreak", 0, "questionPending", false));
+        } else {
+            try {
+                // Limpiamos comillas extra si vienen de una cadena serializada
+                if (internalState.startsWith("\"") && internalState.endsWith("\"")) {
+                    internalState = internalState.substring(1, internalState.length() - 1)
+                            .replace("\\\"", "\"")
+                            .replace("\\\\", "\\");
+                }
+                state = objectMapper.readValue(internalState, new TypeReference<Map<String, Object>>() {
+                });
+            } catch (Exception e) {
+                // Fallback seguro
+                state.put("players", new ArrayList<Map<String, Object>>());
+                state.put("turnOrder", new LinkedHashMap<Integer, Long>());
+                state.put("currentTurnPlayerId", null);
+                state.put("lastDiceRoll", 0);
+                state.put("turnInfo", Map.of("currentStreak", 0, "questionPending", false));
             }
-
-            if (players.size() >= 4) {
-                return Map.of("status", "full", "message", "La sala está llena (máximo 4 jugadores)");
-            }
-
-            players.add(player);
-
-            Map<String, Object> wsMsg = new HashMap<>();
-            wsMsg.put("type", "lobby_update");
-            wsMsg.put("players", new ArrayList<>(players));
-
-            messagingTemplate.convertAndSend("/topic/" + code, wsMsg);
-
-            return Map.of(
-                    "status", "joined",
-                    "players", new ArrayList<>(players),
-                    "username", u.getUsername());
         }
+
+        // Obtenemos la lista de jugadores en el estado interno
+        List<Map<String, Object>> players = (List<Map<String, Object>>) state.get("players");
+
+        // Buscamos si el jugador ya está
+        Map<String, Object> existingPlayer = players.stream()
+                .filter(p -> {
+                    Object idObj = p.get("id");
+                    if (idObj instanceof Number) {
+                        return ((Number) idObj).longValue() == u.getId();
+                    }
+                    return false;
+                })
+                .findFirst()
+                .orElse(null);
+
+        if (existingPlayer != null) {
+            // Ya estaba: actualizamos datos que puedan cambiar
+            existingPlayer.put("username", u.getUsername());
+        } else {
+            // Nuevo jugador: comprobamos límite antes de añadir
+            if (players.size() >= 4) {
+                return Map.of("status", "full", "message", "El juego está lleno (máximo 4 jugadores)");
+            }
+
+            Map<String, Object> newPlayer = new HashMap<>();
+            newPlayer.put("id", u.getId());
+            newPlayer.put("username", u.getUsername());
+            newPlayer.put("boardPosition", 0);
+            newPlayer.put("gamePosition", players.size() + 1);
+
+            players.add(newPlayer);
+        }
+
+        // Actualizamos el orden de turnos si aún no hay ninguno
+        Map<Integer, Long> turnOrder = (Map<Integer, Long>) state.get("turnOrder");
+        if (turnOrder.isEmpty()) {
+            turnOrder.put(1, u.getId());
+            state.put("currentTurnPlayerId", u.getId());
+        } else {
+            turnOrder.put(turnOrder.size() + 1, u.getId());
+        }
+
+        // Guardamos cambios en el estado interno
+        state.put("players", players);
+        state.put("turnOrder", turnOrder);
+
+        try {
+            game.setInternalState(objectMapper.writeValueAsString(state));
+            entityManager.merge(game);
+            entityManager.flush();
+        } catch (Exception e) {
+            throw new RuntimeException("Error writing internalState JSON", e);
+        }
+
+        // Enviamos mensaje WebSocket para actualizar lobby
+        Map<String, Object> wsMsg = new HashMap<>();
+        wsMsg.put("type", "update");
+        wsMsg.put("players", players);
+
+        messagingTemplate.convertAndSend("/topic/" + code, wsMsg);
+
+        return Map.of(
+                "status", "joined",
+                "players", players,
+                "username", u.getUsername());
     }
 
-    // Elimina al usuario del lobby y emite "lobby_update" o "kickedPlayer"
-    // dependiendo de lo que haya ocurrido
-    @PostMapping("/{code}/lobby/leave")
+    @PostMapping("/{code}/leave")
     @ResponseBody
     @Transactional
-    public Map<String, Object> leaveLobby(@PathVariable String code, HttpSession session) {
+    public Map<String, Object> leave(@PathVariable String code, HttpSession session) throws JsonProcessingException {
 
-        User u = (User) session.getAttribute("u");
-        if (u == null) {
+        User uSession = (User) session.getAttribute("u");
+        if (uSession == null) {
             throw new RuntimeException("No user in session");
         }
+        final User u = entityManager.find(User.class, uSession.getId());
 
         // Recuperar el juego
         Game game = entityManager.createNamedQuery("Game.byCode", Game.class)
                 .setParameter("code", code)
                 .getSingleResult();
 
-        boolean isHost = (u != null && game.getHost().getId() == u.getId());
+        ObjectMapper mapper = new ObjectMapper();
+        Map<String, Object> state = new HashMap<>();
+
+        // Leer el estado interno
+        String internalState = game.getInternalState();
+        if (internalState != null && !internalState.isBlank()) {
+            state = mapper.readValue(internalState, new TypeReference<Map<String, Object>>() {
+            });
+        }
+
+        // Lista de jugadores en el estado interno
+        List<Map<String, Object>> players = (List<Map<String, Object>>) state.getOrDefault("players",
+                new ArrayList<>());
+
+        boolean isHost = u.getId() == game.getHost().getId();
 
         if (isHost) {
-            // Si la partida no está finalizada, eliminarla
+            // Host se va
             if (!"FINISHED".equalsIgnoreCase(game.getGameState().trim())) {
-                Game managedGame = entityManager.contains(game) ? game : entityManager.merge(game);
-                entityManager.remove(managedGame);
-
-                // Expulsar a todos del lobby
-                lobbyPlayers.remove(code);
-
+                // Expulsar a todos y eliminar el juego
                 Map<String, Object> wsMsg = new HashMap<>();
                 wsMsg.put("type", "player_kicked");
                 wsMsg.put("players", new ArrayList<>());
@@ -412,15 +527,22 @@ public class GameController {
                 wsMsg.put("message", "Host has left the game, redirecting...");
 
                 messagingTemplate.convertAndSend("/topic/" + code, wsMsg);
+
+                entityManager.remove(entityManager.contains(game) ? game : entityManager.merge(game));
+                return Map.of("status", "left");
             }
         } else {
-            // Si es un jugador normal, solo se retira del lobby
-            List<LobbyPlayerDTO> players = lobbyPlayers.get(code);
-            if (players != null) {
-                players.removeIf(p -> p.getId().equals(u.getId()));
+            // Jugador normal se retira
+            boolean removed = players.removeIf(p -> u.getId() == (long) p.get("id"));
+
+            if (removed) {
+                state.put("players", players);
+                // Guardar de nuevo en internalState
+                game.setInternalState(mapper.writeValueAsString(state));
+                entityManager.merge(game);
 
                 Map<String, Object> wsMsg = new HashMap<>();
-                wsMsg.put("type", "lobby_update");
+                wsMsg.put("type", "update");
                 wsMsg.put("players", players);
 
                 messagingTemplate.convertAndSend("/topic/" + code, wsMsg);
@@ -430,22 +552,45 @@ public class GameController {
         return Map.of("status", "left");
     }
 
-    // Devuelve la lista actual de jugadores en el lobby
-    @GetMapping(path = "/{code}/lobby/players", produces = "application/json")
-    @ResponseBody
-    public Map<String, Object> getLobbyPlayers(@PathVariable String code) {
-        List<LobbyPlayerDTO> players = lobbyPlayers.getOrDefault(code, new ArrayList<>());
-        Map<String, Object> resp = new HashMap<>();
-        resp.put("players", players);
-        return resp;
-    }
-
-    // Solo el host puede llamar esto. Emite "game_start" por WebSocket
-    // con la URL de redirección a la pantalla de juego
-    @PostMapping("/{code}/lobby/start")
+    // Devuelve la lista actual de jugadores en la partida usando internalState
+    @GetMapping(path = "/{code}/players", produces = "application/json")
     @ResponseBody
     @Transactional
-    public Map<String, Object> startLobbyGame(@PathVariable String code, HttpSession session) {
+    public Map<String, Object> getPlayers(@PathVariable String code) throws JsonProcessingException {
+
+        // Recuperar el juego
+        Game game = entityManager.createNamedQuery("Game.byCode", Game.class)
+                .setParameter("code", code)
+                .getSingleResult();
+
+        String internalState = game.getInternalState();
+        ObjectMapper objectMapper = new ObjectMapper();
+        Map<String, Object> state;
+
+        if (internalState == null || internalState.isBlank()) {
+            state = new HashMap<>();
+            state.put("players", new ArrayList<>());
+        } else {
+            // Parsear internalState JSON
+            state = objectMapper.readValue(internalState, new TypeReference<Map<String, Object>>() {
+            });
+            // Asegurarse de que la lista de jugadores exista
+            state.putIfAbsent("players", new ArrayList<>());
+        }
+
+        // Extraer la lista de jugadores
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> players = (List<Map<String, Object>>) state.get("players");
+
+        return Map.of("players", players);
+    }
+
+    // Emite "game_start" por WebSocket
+    // con la URL de redirección a la pantalla de juego
+    @PostMapping("/{code}/start")
+    @ResponseBody
+    @Transactional
+    public Map<String, Object> startGame(@PathVariable String code, HttpSession session) {
         User u = (User) session.getAttribute("u");
 
         Game game = entityManager.createNamedQuery("Game.byCode", Game.class)
@@ -456,8 +601,6 @@ public class GameController {
                 .createQuery("SELECT g.host.id FROM Game g WHERE g.code = :code")
                 .setParameter("code", code)
                 .getSingleResult();
-
-        log.info("startLobbyGame: code={}, userId={}, hostId={}", code, u.getId(), hostId);
 
         if (hostId == null || !hostId.equals(u.getId())) {
             Map<String, Object> errorResp = new HashMap<>();
@@ -484,71 +627,79 @@ public class GameController {
         return resp;
     }
 
-    // Solo el host puede llamar esto. Expulsa a un jugador del lobby y emite
-    // "player_kicked" por WebSocket con el nombre del jugador expulsado
-    @PostMapping("/{code}/lobby/kick/{username}")
+    // Expulsa a un jugador de la partida y emite "player_kicked" por WebSocket
+    @PostMapping("/{code}/kick/{username}")
     @ResponseBody
+    @Transactional
     public Map<String, Object> kickPlayer(
             @PathVariable String code,
             @PathVariable String username,
-            HttpSession session) {
+            HttpSession session) throws JsonProcessingException {
 
         User u = (User) session.getAttribute("u");
+        if (u == null) {
+            return Map.of("status", "error", "message", "Usuario no autenticado");
+        }
 
+        // Recuperar el juego
         Game game;
         try {
             game = entityManager.createNamedQuery("Game.byCode", Game.class)
                     .setParameter("code", code)
                     .getSingleResult();
         } catch (Exception e) {
-            Map<String, Object> err = new HashMap<>();
-            err.put("status", "error");
-            err.put("message", "Partida no encontrada");
-            return err;
+            return Map.of("status", "error", "message", "Partida no encontrada");
         }
 
-        if (u == null || game.getHost().getId() != u.getId()) {
-            Map<String, Object> err = new HashMap<>();
-            err.put("status", "error");
-            err.put("message", "Solo el host puede expulsar jugadores");
-            return err;
+        // Solo el host puede expulsar jugadores
+        if (game.getHost().getId() != (u.getId())) {
+            return Map.of("status", "error", "message", "Solo el host puede expulsar jugadores");
         }
 
+        // No puede expulsarse a sí mismo
         if (username.equals(u.getUsername())) {
-            Map<String, Object> err = new HashMap<>();
-            err.put("status", "error");
-            err.put("message", "No puedes expulsarte a ti mismo");
-            return err;
+            return Map.of("status", "error", "message", "No puedes expulsarte a ti mismo");
         }
 
-        List<LobbyPlayerDTO> players = lobbyPlayers.getOrDefault(code, new ArrayList<>());
-        players.removeIf(p -> p.getUsername().equals(username));
+        // Leer internalState y parsearlo
+        ObjectMapper objectMapper = new ObjectMapper();
+        Map<String, Object> state;
+        String internalState = game.getInternalState();
 
+        if (internalState == null || internalState.isBlank()) {
+            state = new HashMap<>();
+            state.put("players", new ArrayList<>());
+        } else {
+            state = objectMapper.readValue(internalState, new TypeReference<Map<String, Object>>() {
+            });
+            state.putIfAbsent("players", new ArrayList<>());
+        }
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> players = (List<Map<String, Object>>) state.get("players");
+
+        // Eliminar al jugador
+        boolean removed = players.removeIf(p -> username.equals(p.get("username")));
+        if (!removed) {
+            return Map.of("status", "error", "message", "Jugador no encontrado en la partida");
+        }
+
+        // Actualizar internalState en la base de datos
+        game.setInternalState(objectMapper.writeValueAsString(state));
+        entityManager.merge(game);
+
+        // Enviar mensaje WebSocket
         Map<String, Object> wsMsg = new HashMap<>();
         wsMsg.put("type", "player_kicked");
         wsMsg.put("kickedPlayer", username);
         wsMsg.put("players", players);
 
-        try {
-            messagingTemplate.convertAndSend("/topic/" + code, wsMsg);
-        } catch (Exception e) {
-            log.error("Error broadcasting kick", e);
-        }
+        messagingTemplate.convertAndSend("/topic/" + code, wsMsg);
 
-        Map<String, Object> resp = new HashMap<>();
-        resp.put("status", "kicked");
-        resp.put("kickedPlayer", username);
-        resp.put("players", players);
-        return resp;
+        // Respuesta HTTP
+        return Map.of(
+                "status", "kicked",
+                "kickedPlayer", username,
+                "players", players);
     }
-
-    @GetMapping(path = "/{code}/lobby/status", produces = "application/json")
-    @ResponseBody
-    public String getLobbyStatus(@PathVariable String code) {
-        Game game = entityManager.createNamedQuery("Game.byCode", Game.class)
-                .setParameter("code", code)
-                .getSingleResult();
-        return game.getGameState();
-    }
-
 }
