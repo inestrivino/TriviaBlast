@@ -9,6 +9,7 @@ const ws = {
      * Number of retries if connection fails
      */
     retries: 3,
+    connected: false,
 
     /**
      * Default action when message is received. 
@@ -48,13 +49,17 @@ const ws = {
         }
     },
 
-    subscribe: (sub) => {
+    subscribe: (sub, callback = ws.receive) => {
         try {
-            ws.stompClient.subscribe(sub,
-                (m) => ws.receive(JSON.parse(m.body))); // fails if non-json received!
-            console.log("Hopefully subscribed to " + sub);
+            ws.stompClient.subscribe(sub, (m) => {
+                const body = JSON.parse(m.body);
+                callback(body);
+            });
+
+            console.log("Subscribed to " + sub);
+
         } catch (e) {
-            console.log("Error, could not subscribe to " + sub, e);
+            console.log("Error subscribing to " + sub, e);
         }
     }
 }
@@ -79,6 +84,7 @@ const ws = {
  *     text: <describing the error>
  *  }
  */
+
 function go(url, method, data = {}, headers = false) {
     const isFormData = data instanceof FormData;
     const isURLSearchParams = data instanceof URLSearchParams;
@@ -94,28 +100,27 @@ function go(url, method, data = {}, headers = false) {
     } else {
         params.headers["X-CSRF-TOKEN"] = config.csrf.value;
         if (isFormData && !headers) {
-          // NOTE: must *not* set multipart/form-data, as browser will set it with the correct boundary; and if we set it, it will be sent without boundary, and server will not understand it
+            // NOTE: must *not* set multipart/form-data, as browser will set it with the correct boundary; and if we set it, it will be sent without boundary, and server will not understand it
         } else if (isURLSearchParams && !headers) {
-          params.headers["Content-Type"] = "application/x-www-form-urlencoded; charset=utf-8";
+            params.headers["Content-Type"] = "application/x-www-form-urlencoded; charset=utf-8";
         } else if (!headers) {
-          params.headers["Content-Type"] = "application/json; charset=utf-8";
+            params.headers["Content-Type"] = "application/json; charset=utf-8";
         }
     }
     console.log("sending", url, params)
-    return fetch(url, params)
-        .then(response => {
-            const r = response;
-            if (r.ok) {
-                return r.json().then(json => Promise.resolve(json));
-            } else {
-                return r.text().then(text => Promise.reject({
-                    url,
-                    data: JSON.stringify(data),
-                    status: r.status,
-                    text
-                }));
-            }
-        });
+    return fetch(url, params).then(async response => {
+        const contentType = response.headers.get("content-type");
+
+        const data = contentType?.includes("application/json")
+            ? await response.json()
+            : await response.text();
+
+        if (response.ok) {
+            return data;
+        }
+
+        throw data;
+    });
 }
 
 /**

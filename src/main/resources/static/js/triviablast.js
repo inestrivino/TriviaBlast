@@ -6,7 +6,6 @@
 */
 
 /*
-* initTrivia() / bloque DOMContentLoaded interno:
 * Lógica completa del juego individual (single player):
 * · showQuestion(index): muestra la pregunta y sus respuestas como botones
 * · sendAnswer(answer, questionId, btn): hace POST a /game/answer con
@@ -15,10 +14,7 @@
 */
 document.addEventListener('DOMContentLoaded', () => {
     initAuthToggle();
-    initBoard();
     initTableToggleButtons();
-    initTrivia();
-
 });
 
 /* =========================

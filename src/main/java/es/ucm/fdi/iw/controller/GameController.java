@@ -36,6 +36,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import es.ucm.fdi.iw.controller.dtos.AnswerReqDTO;
 import es.ucm.fdi.iw.controller.dtos.AnswerResDTO;
 import es.ucm.fdi.iw.controller.dtos.GameSetupDTO;
+import es.ucm.fdi.iw.controller.dtos.LobbyPlayerDTO;
 import es.ucm.fdi.iw.controller.dtos.QuestionDataPrivateDTO;
 import es.ucm.fdi.iw.controller.dtos.QuestionDataPublicDTO;
 import es.ucm.fdi.iw.model.Game;
@@ -181,9 +182,9 @@ public class GameController {
         game.setCategories(null);
         game.setCode(UserController.generateGameCode(6));
         game.setDifficulty("Easy");
-        game.setGameState("{\"x\" = 42;}");
+        game.setGameState("WAITING");
         game.setHost(u);
-        game.setInternalState("{\"x\" = 42;}");
+        game.setInternalState("");
         game.setNumPlayers(1);
         game.setNumQuestions(5);
 
@@ -213,7 +214,10 @@ public class GameController {
         if (currentUser == null) {
             return "redirect:/login";
         }
-        
+        if (!("STARTED").equalsIgnoreCase(game.getGameState().trim())) {
+            return "redirect:/game/lobby/" + code;
+        }
+
         System.out.println("CODE RECIBIDO = " + code);
         System.out.println("GAME = " + game.getCode());
         System.out.println("USER = " + currentUser.getUsername());
@@ -284,7 +288,7 @@ public class GameController {
 
     // LOBBY
 
-    private static final ConcurrentHashMap<String, List<String>> lobbyPlayers = new ConcurrentHashMap<>();
+    private static final Map<String, List<LobbyPlayerDTO>> lobbyPlayers = new ConcurrentHashMap<>();
 
     // Muestra lobby.html. Determina si el usuario es el host
     @GetMapping("/lobby/{code}")
@@ -297,6 +301,7 @@ public class GameController {
         User u = (User) session.getAttribute("u");
         boolean isHost = (u != null && game.getHost().getId() == u.getId());
         model.addAttribute("isHost", isHost);
+        model.addAttribute("u", u);
 
         session.setAttribute("topics", code);
         model.addAttribute("topics", code);
@@ -309,12 +314,20 @@ public class GameController {
     public String joinGame(@RequestParam("gameCode") String gameCode,
             Model model, HttpSession session) {
         try {
-            entityManager.createNamedQuery("Game.byCode", Game.class)
+            Game game = entityManager.createNamedQuery("Game.byCode", Game.class)
                     .setParameter("code", gameCode)
                     .getSingleResult();
+
+            // Comprobamos que el estado no sea "WAITING"
+            if (!"WAITING".equalsIgnoreCase(game.getGameState().trim())) {
+                model.addAttribute("error", "Game has already started: " + gameCode);
+                return "join_game";
+            }
+
             return "redirect:/game/lobby/" + gameCode;
+
         } catch (Exception e) {
-            model.addAttribute("error", "Código de partida inválido: " + gameCode);
+            model.addAttribute("error", "Invalid game code: " + gameCode);
             return "join_game";
         }
     }
@@ -325,72 +338,103 @@ public class GameController {
     @ResponseBody
     @Transactional
     public Map<String, Object> joinLobby(@PathVariable String code, HttpSession session) {
+
         User u = (User) session.getAttribute("u");
-        String username = (u != null) ? u.getUsername() : "Guest";
+        if (u == null) {
+            throw new RuntimeException("No user in session");
+        }
 
-        lobbyPlayers.computeIfAbsent(code, k -> new ArrayList<>());
-        List<String> players = lobbyPlayers.get(code);
-        if (!players.contains(username)) {
-            if (players.size() >= 4) {
-                Map<String, Object> fullResp = new HashMap<>();
-                fullResp.put("status", "full");
-                fullResp.put("message", "La sala está llena (máximo 4 jugadores)");
-                return fullResp;
+        LobbyPlayerDTO player = new LobbyPlayerDTO(u.getId(), u.getUsername());
+
+        // Inicializamos la lista si no existe, usando ConcurrentHashMap.computeIfAbsent
+        List<LobbyPlayerDTO> players = lobbyPlayers.computeIfAbsent(code,
+                k -> Collections.synchronizedList(new ArrayList<>()));
+
+        synchronized (players) { // bloque sincronizado por la lista específica del lobby
+            boolean alreadyJoined = players.stream()
+                    .anyMatch(p -> p.getId().equals(u.getId()));
+
+            if (alreadyJoined) {
+                return Map.of("status", "already_joined", "message", "Ya estás en la sala");
             }
-            players.add(username);
+
+            if (players.size() >= 4) {
+                return Map.of("status", "full", "message", "La sala está llena (máximo 4 jugadores)");
+            }
+
+            players.add(player);
+
+            Map<String, Object> wsMsg = new HashMap<>();
+            wsMsg.put("type", "lobby_update");
+            wsMsg.put("players", new ArrayList<>(players));
+
+            messagingTemplate.convertAndSend("/topic/" + code, wsMsg);
+
+            return Map.of(
+                    "status", "joined",
+                    "players", new ArrayList<>(players),
+                    "username", u.getUsername());
         }
-
-        Map<String, Object> wsMsg = new HashMap<>();
-        wsMsg.put("type", "lobby_update");
-        wsMsg.put("players", players);
-
-        try {
-            ObjectMapper mapper = new ObjectMapper();
-            String json = mapper.writeValueAsString(wsMsg);
-            messagingTemplate.convertAndSend("/topic/" + code, json);
-        } catch (Exception e) {
-            log.error("Error broadcasting lobby leave", e);
-        }
-
-        Map<String, Object> resp = new HashMap<>();
-        resp.put("status", "joined");
-        resp.put("players", players);
-        resp.put("username", username);
-        return resp;
     }
 
-    // Elimina al usuario del lobby y emite "lobby_update"
+    // Elimina al usuario del lobby y emite "lobby_update" o "kickedPlayer"
+    // dependiendo de lo que haya ocurrido
     @PostMapping("/{code}/lobby/leave")
     @ResponseBody
+    @Transactional
     public Map<String, Object> leaveLobby(@PathVariable String code, HttpSession session) {
+
         User u = (User) session.getAttribute("u");
-        String username = (u != null) ? u.getUsername() : "Guest";
-
-        List<String> players = lobbyPlayers.getOrDefault(code, new ArrayList<>());
-        players.remove(username);
-
-        Map<String, Object> wsMsg = new HashMap<>();
-        wsMsg.put("type", "lobby_update");
-        wsMsg.put("players", players);
-
-        try {
-            String json = new ObjectMapper().writeValueAsString(wsMsg);
-            messagingTemplate.convertAndSend("/topic/" + code, json);
-        } catch (Exception e) {
-            log.error("Error broadcasting lobby leave", e);
+        if (u == null) {
+            throw new RuntimeException("No user in session");
         }
 
-        Map<String, Object> resp = new HashMap<>();
-        resp.put("status", "left");
-        resp.put("players", players);
-        return resp;
+        // Recuperar el juego
+        Game game = entityManager.createNamedQuery("Game.byCode", Game.class)
+                .setParameter("code", code)
+                .getSingleResult();
+
+        boolean isHost = (u != null && game.getHost().getId() == u.getId());
+
+        if (isHost) {
+            // Si la partida no está finalizada, eliminarla
+            if (!"FINISHED".equalsIgnoreCase(game.getGameState().trim())) {
+                Game managedGame = entityManager.contains(game) ? game : entityManager.merge(game);
+                entityManager.remove(managedGame);
+
+                // Expulsar a todos del lobby
+                lobbyPlayers.remove(code);
+
+                Map<String, Object> wsMsg = new HashMap<>();
+                wsMsg.put("type", "player_kicked");
+                wsMsg.put("players", new ArrayList<>());
+                wsMsg.put("kickedPlayer", "all");
+                wsMsg.put("message", "Host has left the game, redirecting...");
+
+                messagingTemplate.convertAndSend("/topic/" + code, wsMsg);
+            }
+        } else {
+            // Si es un jugador normal, solo se retira del lobby
+            List<LobbyPlayerDTO> players = lobbyPlayers.get(code);
+            if (players != null) {
+                players.removeIf(p -> p.getId().equals(u.getId()));
+
+                Map<String, Object> wsMsg = new HashMap<>();
+                wsMsg.put("type", "lobby_update");
+                wsMsg.put("players", players);
+
+                messagingTemplate.convertAndSend("/topic/" + code, wsMsg);
+            }
+        }
+
+        return Map.of("status", "left");
     }
 
     // Devuelve la lista actual de jugadores en el lobby
     @GetMapping(path = "/{code}/lobby/players", produces = "application/json")
     @ResponseBody
     public Map<String, Object> getLobbyPlayers(@PathVariable String code) {
-        List<String> players = lobbyPlayers.getOrDefault(code, new ArrayList<>());
+        List<LobbyPlayerDTO> players = lobbyPlayers.getOrDefault(code, new ArrayList<>());
         Map<String, Object> resp = new HashMap<>();
         resp.put("players", players);
         return resp;
@@ -409,9 +453,9 @@ public class GameController {
                 .getSingleResult();
 
         Long hostId = (Long) entityManager
-            .createQuery("SELECT g.host.id FROM Game g WHERE g.code = :code")
-            .setParameter("code", code)
-            .getSingleResult();
+                .createQuery("SELECT g.host.id FROM Game g WHERE g.code = :code")
+                .setParameter("code", code)
+                .getSingleResult();
 
         log.info("startLobbyGame: code={}, userId={}, hostId={}", code, u.getId(), hostId);
 
@@ -423,15 +467,14 @@ public class GameController {
         }
 
         // marca la partida como iniciada en BD
-        game.setInternalState("STARTED");
+        game.setGameState("STARTED");
 
         Map<String, Object> wsMsg = new HashMap<>();
         wsMsg.put("type", "game_start");
         wsMsg.put("redirect", "/game/multi_game/" + code);
 
         try {
-            String json = new ObjectMapper().writeValueAsString(wsMsg);
-            messagingTemplate.convertAndSend("/topic/" + code, json);
+            messagingTemplate.convertAndSend("/topic/" + code, wsMsg);
         } catch (Exception e) {
             log.error("Error broadcasting game start", e);
         }
@@ -478,8 +521,8 @@ public class GameController {
             return err;
         }
 
-        List<String> players = lobbyPlayers.getOrDefault(code, new ArrayList<>());
-        players.remove(username);
+        List<LobbyPlayerDTO> players = lobbyPlayers.getOrDefault(code, new ArrayList<>());
+        players.removeIf(p -> p.getUsername().equals(username));
 
         Map<String, Object> wsMsg = new HashMap<>();
         wsMsg.put("type", "player_kicked");
@@ -487,8 +530,7 @@ public class GameController {
         wsMsg.put("players", players);
 
         try {
-            String json = new ObjectMapper().writeValueAsString(wsMsg);
-            messagingTemplate.convertAndSend("/topic/" + code, json);
+            messagingTemplate.convertAndSend("/topic/" + code, wsMsg);
         } catch (Exception e) {
             log.error("Error broadcasting kick", e);
         }
@@ -500,20 +542,13 @@ public class GameController {
         return resp;
     }
 
-
     @GetMapping(path = "/{code}/lobby/status", produces = "application/json")
     @ResponseBody
-    public Map<String, Object> getLobbyStatus(@PathVariable String code) {
-        Map<String, Object> resp = new HashMap<>();
-        try {
-            Game game = entityManager.createNamedQuery("Game.byCode", Game.class)
-                    .setParameter("code", code)
-                    .getSingleResult();
-            resp.put("started", "STARTED".equals(game.getInternalState()));
-        } catch (Exception e) {
-            resp.put("started", false);
-        }
-        return resp;
+    public String getLobbyStatus(@PathVariable String code) {
+        Game game = entityManager.createNamedQuery("Game.byCode", Game.class)
+                .setParameter("code", code)
+                .getSingleResult();
+        return game.getGameState();
     }
 
 }

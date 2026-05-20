@@ -3,7 +3,7 @@
     Usa WebSocket (/topic/{code}) para actualizar en
     tiempo real la lista de jugadores
     El host ve el botón "Iniciar partida"
---> 
+-->
 
 <!DOCTYPE html>
 <html lang="es" class="h-100" xmlns:th="http://www.thymeleaf.org">
@@ -18,41 +18,45 @@
 
     <main class="flex-grow-1 d-flex align-items-center justify-content-center">
         <div class="container" style="max-width: 600px;">
-
+            <!-- Estado del lobby -->
+            <div id="lobby-status" class="alert alert-info mb-3" style="display: none;" role="alert">
+                Connecting to the lobby...
+            </div>
             <div class="card shadow-sm">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h4 class="mb-0">Lobby de partida</h4>
-                    <span class="badge bg-secondary fs-6">Código: <strong th:text="${game.code}">????</strong></span>
+                    <h4 class="mb-0">Game lobby</h4>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-secondary fs-6 px-3 py-2">
+                            <i class="bi bi-hash"></i>
+                            <strong id="game-code" th:text="${game.code}">????</strong>
+                        </span>
+
+                        <button id="copy-code-btn" class="btn btn-outline-secondary btn-sm" title="Copiar código">
+                            <i class="bi bi-clipboard"></i>
+                        </button>
+                    </div>
                 </div>
                 <div class="card-body">
 
                     <!-- Jugadores conectados -->
-                    <h5 class="mb-3">Jugadores en sala <span class="badge bg-primary" id="player-count">0</span></h5>
+                    <h5 class="mb-3">Players in the lobby: <span id="player-count">0</span> / 4</h5>
                     <ul class="list-group mb-4" id="player-list">
-                        <li class="list-group-item text-muted fst-italic">Esperando jugadores...</li>
+                        <li class="list-group-item text-muted fst-italic">Waiting for players...</li>
                     </ul>
-
-                    <!-- Estado del lobby -->
-                    <div id="lobby-status" class="alert alert-info mb-3" role="alert">
-                        Conectándose al lobby...
-                    </div>
 
                     <!-- Botón solo para el host -->
                     <div th:if="${isHost}" class="d-grid">
                         <button id="start-btn" class="btn btn-success btn-lg" disabled>
-                             Iniciar partida
+                            Start game
                         </button>
-                        <small class="text-muted text-center mt-1">Necesitas al menos 2 jugadores para empezar</small>
+                        <small class="text-muted text-center mt-1">At least 2 players are needed to start a game</small>
                     </div>
 
                     <!-- Mensaje para no-host -->
                     <div th:unless="${isHost}" class="alert alert-warning" id="waiting-host">
-                         Esperando a que el host inicie la partida...
+                        Waiting for host to start the game...
                     </div>
 
-                </div>
-                <div class="card-footer text-end">
-                    <button id="leave-btn" class="btn btn-outline-danger btn-sm">Abandonar sala</button>
                 </div>
             </div>
 
@@ -62,6 +66,8 @@
     <th:block th:replace="~{fragments/footer.html :: footer}" />
 
     <script th:inline="javascript">
+
+        //Valores que se reciben a través del modelo
         const gameCode = /*[[${game.code}]]*/ "XXXX";
         const currentUser = /*[[${u != null ? u.username : 'Guest'}]]*/ "Guest";
         const isHost = /*[[${isHost}]]*/ false;
@@ -70,31 +76,34 @@
         const lobbyTopic = `/topic/${gameCode}`;
         let stompConnected = false;
 
-        ws.receive = (msg) => {
-            handleWsMessage(msg);
-        };
-
         document.addEventListener("DOMContentLoaded", () => {
             setStatus("Conectando al servidor...", "info");
 
-            // Join lobby via AJAX first
-            joinLobby();
+            function subscribeLobby() {
 
-            // si el WS no llega, redirige igual
-            if (!isHost) {
-                const pollInterval = setInterval(() => {
-                    go(`${config.rootUrl}/game/${gameCode}/lobby/status`, "GET")
-                        .then(d => {
-                            if (d.started) {
-                                clearInterval(pollInterval);
-                                window.location.href = config.rootUrl + "/game/multi_game/" + gameCode;
-                            }
-                        })
-                        .catch(() => {});
-                }, 2000);
+                if (!ws.connected) {
+                    setTimeout(subscribeLobby, 200);
+                    return;
+                }
+
+                ws.subscribe(lobbyTopic, handleWsMessage);
             }
 
-            // Start button (host only)
+            //suscripción al websocket
+            subscribeLobby();
+
+            // Se une al lobby el jugador que lo ha invocado
+            let joined = false;
+
+            function joinLobbyOnce() {
+                if (joined) return;
+                joined = true;
+                joinLobby();
+            }
+
+            joinLobbyOnce();
+
+            // Botón para comenzar la partida, solo disponible para el host
             const startBtn = document.getElementById("start-btn");
             if (startBtn) {
                 startBtn.addEventListener("click", () => {
@@ -103,58 +112,61 @@
                     go(`${config.rootUrl}/game/${gameCode}/lobby/start`, "POST")
                         .then(d => {
                             if (d.status === "started") {
-                                setStatus("¡Partida iniciada! Redirigiendo...", "success");
+                                setStatus("Game started! Redirecting...", "success");
                                 setTimeout(() => {
                                     window.location.href = config.rootUrl + "/game/multi_game/" + gameCode;
                                 }, 800);
                             } else {
-                                setStatus("Error al iniciar: " + (d.message || "desconocido"), "danger");
+                                setStatus("Error while starting: " + (d.message || "unknown"), "danger");
                                 startBtn.disabled = false;
-                                startBtn.textContent = "Iniciar partida";
+                                startBtn.textContent = "Start Game";
                             }
                         })
                         .catch(e => {
                             console.error("Error starting game", e);
-                            setStatus("Error al iniciar la partida", "danger");
+                            setStatus("Error when starting the game", "danger");
                             startBtn.disabled = false;
-                            startBtn.textContent = "Iniciar partida";
+                            startBtn.textContent = "Start Game";
                         });
                 });
             }
 
-            // Leave button
-            document.getElementById("leave-btn").addEventListener("click", () => {
-                go(`${config.rootUrl}/game/${gameCode}/lobby/leave`, "POST")
-                    .then(() => window.location.href = config.rootUrl + "/")
-                    .catch(() => window.location.href = config.rootUrl + "/");
-            });
+            const copyBtn = document.getElementById("copy-code-btn");
 
-            // Leave lobby when page is closed/navigated away
-            window.addEventListener("beforeunload", () => {
-                navigator.sendBeacon(
-                    `${config.rootUrl}/game/${gameCode}/lobby/leave`,
-                    new Blob([JSON.stringify({})], { type: "application/json" })
-                );
-            });
+            if (copyBtn) {
+                copyBtn.addEventListener("click", async () => {
+
+                    try {
+                        await navigator.clipboard.writeText(gameCode);
+
+                        copyBtn.innerHTML = '<i class="bi bi-check-lg"></i>';
+
+                        setTimeout(() => {
+                            copyBtn.innerHTML = '<i class="bi bi-clipboard"></i>';
+                        }, 1500);
+
+                    } catch (e) {
+                        console.error("Error copying code", e);
+                    }
+                });
+            }
         });
 
-
-        // AJAX: join lobby and load initial player list
         function joinLobby() {
             go(`${config.rootUrl}/game/${gameCode}/lobby/join`, "POST")
                 .then(data => {
                     if (data.status === "full") {
                         setStatus(data.message, "danger");
-                        document.getElementById("leave-btn").textContent = "Volver";
+                        document.getElementById("leave-btn").textContent = "Go back";
                         return;
                     }
                     renderPlayers(data.players);
-                    setStatus(`Bienvenido, ${data.username}! Sala lista.`, "success");
+                    setStatus(`Welcome, ${data.username}! The lobby is ready.`, "success");
                 })
                 .catch(err => {
                     console.error("Error joining lobby:", err);
                     loadPlayers();
-                    setStatus("Conectado (modo limitado)", "warning");
+                    setStatus("Connected (limited mode)", "warning");
                 });
         }
 
@@ -165,33 +177,44 @@
         }
 
 
-        // WS message handler
+        // manejo de mensajes websocket
         function handleWsMessage(msg) {
             console.log("Lobby WS message:", msg);
+
             if (msg.type === "lobby_update") {
+                //si se ha unido un jugador, vuelve a renderizar la lista
                 renderPlayers(msg.players);
             } else if (msg.type === "game_start") {
-                setStatus("La partida va a comenzar", "success");
-                // Redirect all players to the game
+                // si la partida va a comenzar redirige a todos los jugadores a la partida
+                setStatus("Game is about to start", "success");
                 setTimeout(() => {
                     window.location.href = msg.redirect || (config.rootUrl + "/game/multi_game/" + gameCode);
                 }, 1000);
             } else if (msg.type === "player_kicked") {
+                // si un usuario ha sido expulsado se le muestra el hecho y se renderiza otra vez la lista de participantes al resto de jugadores
                 renderPlayers(msg.players);
                 if (msg.kickedPlayer === currentUser) {
-                    setStatus("Has sido expulsado del lobby por el host.", "danger");
+                    setStatus("You've been kicked from the lobby by the host", "danger");
                     setTimeout(() => {
                         window.location.href = config.rootUrl + "/";
                     }, 2000);
-                } else {
-                    setStatus(`${msg.kickedPlayer} ha sido expulsado del lobby.`, "warning");
+                }
+                else if (msg.type === "player_kicked" && msg.kickedPlayer === "all") {
+                    setStatus(msg.message || "Host left the game", "danger");
+                    setTimeout(() => {
+                        window.location.href = config.rootUrl + "/";
+                    }, 2000);
+                }
+                else {
+                    renderPlayers(msg.players);
+                    setStatus(`${msg.kickedPlayer} has been expelled from the lobby`, "warning");
                 }
             }
         }
-     
-        // Expulsar jugador (solo host)
+
+        // Expulsar jugador (solo host) TO DO: COMPROBAR QUE REALMENTE SE COMPRUEBA SOLO HOST EN BACKEND
         function kickPlayer(username) {
-            if (!confirm(`¿Seguro que quieres expulsar a ${username}?`)) return;
+            if (!confirm(`Are you sure you want to expell ${username}?`)) return;
             go(`${config.rootUrl}/game/${gameCode}/lobby/kick/${encodeURIComponent(username)}`, "POST")
                 .then(d => {
                     if (d.status === "error") {
@@ -207,47 +230,173 @@
             return d.innerHTML;
         }
 
-        // Render helpers
+        // Para otros elementos de renderización de la página
         function renderPlayers(players) {
+
             const list = document.getElementById("player-list");
             const count = document.getElementById("player-count");
             const startBtn = document.getElementById("start-btn");
 
             count.textContent = players.length;
 
+            // Si no hay jugadores
             if (players.length === 0) {
-                list.innerHTML = '<li class="list-group-item text-muted fst-italic">Esperando jugadores...</li>';
+
+                list.innerHTML = `
+            <li class="list-group-item text-muted fst-italic">
+                Waiting for players...
+            </li>
+        `;
+
             } else {
-                list.innerHTML = players.map(p => {
-                    const isMe = p === currentUser;
-                    const hostBadge = (p === hostUsername) ? ' <span class="badge bg-warning text-dark ms-1">Host</span>' : '';
-                    const meBadge = isMe ? ' <span class="badge bg-info ms-1">Tú</span>' : '';
-                    const kickBtn = (isHost && p !== currentUser)
-                        ? `<button class="btn btn-outline-danger btn-sm ms-2" onclick="kickPlayer('${escapeHtml(p)}')">✕ Expulsar</button>`
-                        : '';
-                    return `<li class="list-group-item d-flex align-items-center justify-content-between">
-                        <span> ${escapeHtml(p)}${hostBadge}${meBadge}</span>
-                        ${kickBtn}
-                    </li>`;
+
+                // Render moderno
+                list.innerHTML = players.map(player => {
+
+                    const isMe = player.username === currentUser;
+                    const isHostPlayer = player.username === hostUsername;
+
+                    let playerClasses = "";
+                    let extraStyle = "";
+
+                    if (isHostPlayer) {
+
+                        playerClasses = "border border-warning-subtle";
+
+                        extraStyle = `
+                        background: linear-gradient(
+                        90deg,
+                        rgba(255,248,220,0.95),
+                        rgba(255,255,255,1)
+                        );
+                        `;
+
+                    } else if (isMe) {
+
+                        playerClasses = "border border-info-subtle";
+
+                        extraStyle = `
+                        background: linear-gradient(
+                        90deg,
+                        rgba(230,247,255,0.95),
+                        rgba(255,255,255,1)
+                    );
+                    `;
+                    }
+
+                    const hostIcon = isHostPlayer
+                        ? `<i class="bi bi-patch-check-fill text-warning me-2"></i>`
+                        : "";
+
+                    const hostGlow = `
+                    style="
+                    ${extraStyle}
+                    transition: all .2s ease;
+                     "
+                    `;
+
+                    let actionBtn = "";
+
+                    // Host puede expulsar
+                    if (isHost && !isMe) {
+
+                        actionBtn = `
+                    <button
+                        class="btn btn-outline-danger btn-sm ms-2"
+                        onclick="kickPlayer('${escapeHtml(player.username)}')">
+
+                        <i class="bi bi-person-x"></i>
+                    </button>
+                `;
+                    }
+
+                    // Usuario actual puede salir
+                    if (isMe) {
+
+                        actionBtn = `
+                    <button
+                        class="btn btn-outline-secondary btn-sm ms-2"
+                        id="leave-inline-btn">
+
+                        <i class="bi bi-box-arrow-right"></i>
+                    </button>
+                `;
+                    }
+
+                    return `
+                <li class="list-group-item d-flex align-items-center justify-content-between ${playerClasses}"
+                    ${hostGlow}>
+
+                    <div class="d-flex align-items-center">
+
+                        <img
+    src="${config.rootUrl}/user/${player.id}/pic"
+    class="rounded-circle me-3 border"
+    style="
+        width: 42px;
+        height: 42px;
+        object-fit: cover;
+    "
+    alt="avatar">
+
+                        <span class="${isHostPlayer ? 'fw-bold text-warning' : ''}">
+                            ${hostIcon}
+                            ${escapeHtml(player.username)}
+                        </span>
+
+                    </div>
+
+                    <div>
+                        ${actionBtn}
+                    </div>
+
+                </li>
+            `;
+
                 }).join("");
             }
 
-            // Enable start button for host when >= 2 players
+            // Botón inline abandonar
+            const leaveInlineBtn = document.getElementById("leave-inline-btn");
+
+            if (leaveInlineBtn) {
+
+                leaveInlineBtn.addEventListener("click", () => {
+
+                    go(`${config.rootUrl}/game/${gameCode}/lobby/leave`, "POST")
+                        .then(() => window.location.href = config.rootUrl + "/")
+                        .catch(() => window.location.href = config.rootUrl + "/");
+                });
+            }
+
+            // Habilitar start para host
             if (startBtn) {
                 startBtn.disabled = players.length < 2;
             }
         }
 
+        let lobbyStatusTimeout = null;
+
         function setStatus(text, type) {
             const el = document.getElementById("lobby-status");
+
+            // Mostrar el elemento
+            el.style.display = "block";
             el.className = `alert alert-${type} mb-3`;
             el.textContent = text;
+
+            // Cancelar timeout anterior si existe
+            if (lobbyStatusTimeout) {
+                clearTimeout(lobbyStatusTimeout);
+            }
+
+            // Ocultarlo después de 3 segundos
+            lobbyStatusTimeout = setTimeout(() => {
+                el.style.display = "none";
+                lobbyStatusTimeout = null;
+            }, 3000);
         }
-
-
-
-        
     </script>
-
 </body>
+
 </html>

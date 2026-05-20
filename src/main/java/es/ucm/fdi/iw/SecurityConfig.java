@@ -53,8 +53,7 @@ public class SecurityConfig {
 	* El método principal
 	* Define las reglas de acceso:
 	* · /css/**, /js/**, /img/**, /error → públicas (sin login)
-	* · /login, /user/register, /proposal, /authors, /join_game,
-	* /multi_game*, /game/join, /game/lobby/** → públicas
+	* · /login, /user/register, /proposal, /authors -> publicas
 	* · /api/** → públicas (la API no requiere login por defecto)
 	* · /admin/** → solo rol ADMIN
 	* · /user/** → solo rol USER
@@ -72,14 +71,14 @@ public class SecurityConfig {
 			http.csrf(csrf -> csrf
 					.ignoringRequestMatchers("/h2/**"));
 			http.authorizeHttpRequests(authorize -> authorize
-					.requestMatchers("/h2/**").permitAll() // <-- no login for h2 console
+					.requestMatchers("/h2/**").permitAll()
 			);
 			http.headers(header -> header.frameOptions(frameOptions -> frameOptions.sameOrigin()));
 		}
 
 		http
 				.csrf(csrf -> csrf
-						.ignoringRequestMatchers("/api/**", "/game/**")) // game puede estar mal 
+						.ignoringRequestMatchers("/api/**"))
 				.authorizeHttpRequests(authorize -> authorize
 
 						// recursos públicos
@@ -92,8 +91,7 @@ public class SecurityConfig {
 								"/authors",
 								"/index",
 								"/join_game",
-								"/login",
-								"/game/join")
+								"/login")
 						.permitAll()
 
 						.requestMatchers("/api/**").permitAll()
