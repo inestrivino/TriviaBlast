@@ -186,25 +186,89 @@ public class UserController {
       @ModelAttribute User edited,
       @RequestParam(required = false) String pass2,
       RedirectAttributes redirectAttributes,
-      Model model, HttpSession session) throws IOException {
+      Model model,
+      HttpSession session) throws IOException {
 
-    User target = new User();
-    if (!edited.getPassword().equals(pass2)) {
-      log.warn("Passwords do not match - returning to register form");
-      model.addAttribute("user", edited);
-      redirectAttributes.addFlashAttribute("error", "password_mismatch");
+    try {
+
+      // Passwords distintas
+      if (!edited.getPassword().equals(pass2)) {
+
+        log.warn("Passwords do not match");
+
+        redirectAttributes.addFlashAttribute(
+            "error",
+            "Passwords do not match");
+
+        return "redirect:/login";
+      }
+
+      // Username ya existe
+      Long usernameCount = entityManager.createQuery("""
+          SELECT COUNT(u)
+          FROM User u
+          WHERE LOWER(u.username) = LOWER(:username)
+          """, Long.class)
+          .setParameter("username", edited.getUsername())
+          .getSingleResult();
+
+      if (usernameCount > 0) {
+
+        redirectAttributes.addFlashAttribute(
+            "error",
+            "Username already in use");
+
+        return "redirect:/login";
+      }
+
+      // Email ya existe
+      Long emailCount = entityManager.createQuery("""
+          SELECT COUNT(u)
+          FROM User u
+          WHERE LOWER(u.email) = LOWER(:email)
+          """, Long.class)
+          .setParameter("email", edited.getEmail())
+          .getSingleResult();
+
+      if (emailCount > 0) {
+
+        redirectAttributes.addFlashAttribute(
+            "error",
+            "Email already in use");
+
+        return "redirect:/login";
+      }
+
+      // Crear usuario
+      User target = new User();
+
+      target.setPassword(encodePassword(edited.getPassword()));
+      target.setUsername(edited.getUsername());
+      target.setEmail(edited.getEmail());
+      target.setRoles("USER");
+
+      entityManager.persist(target);
+      entityManager.flush();
+
+      authenticateUser(
+          target.getUsername(),
+          edited.getPassword(),
+          session);
+
+      session.setAttribute("u", target);
+
+      return "redirect:/user/" + target.getId();
+
+    } catch (Exception e) {
+
+      log.error("Registration error", e);
+
+      redirectAttributes.addFlashAttribute(
+          "error",
+          "Unexpected registration error");
+
       return "redirect:/login";
     }
-    // save encoded version of password
-    target.setPassword(encodePassword(edited.getPassword()));
-    target.setUsername(edited.getUsername());
-    target.setEmail(edited.getEmail());
-    target.setRoles("USER");
-
-    entityManager.persist(target);
-    authenticateUser(target.getUsername(), edited.getPassword(), session);
-    session.setAttribute("u", target);
-    return "redirect:/user/" + target.getId();
   }
 
   /**
@@ -219,6 +283,7 @@ public class UserController {
    * · "avatar" → redirige al endpoint /pic
    * Solo el propio usuario o un ADMIN pueden modificar un perfil
    */
+
   @PostMapping("/{id}")
   @Transactional
   public String postUser(
@@ -228,74 +293,154 @@ public class UserController {
       @RequestParam(required = false) String pass2,
       @RequestParam(required = false) String formType,
       @RequestParam(required = false) String currentPassword,
-      Model model, HttpSession session) throws IOException {
+      Model model,
+      HttpSession session) throws IOException {
 
-    User requester = (User) session.getAttribute("u");
-    User target = null;
-    if (id == -1 && requester.hasRole("ADMIN")) {
-      target = new User();
-      target.setPassword(encodePassword(generateRandomBase64Token(12)));
-      target.setEnabled(true);
-      entityManager.persist(target);
+    try {
+
+      User requester = (User) session.getAttribute("u");
+
+      User target = null;
+
+      if (id == -1 && requester.hasRole("ADMIN")) {
+        target = new User();
+        target.setPassword(encodePassword(generateRandomBase64Token(12)));
+        target.setEnabled(true);
+
+        entityManager.persist(target);
+        entityManager.flush();
+
+        id = target.getId();
+      }
+
+      // retrieve requested user
+      target = entityManager.find(User.class, id);
+      model.addAttribute("user", target);
+
+      if (requester.getId() != target.getId()
+          && !requester.hasRole("ADMIN")) {
+        throw new NoEsTuPerfilException();
+      }
+
+      if ("password".equals(formType)) {
+
+        if (edited.getPassword() != null
+            && !edited.getPassword().isEmpty()) {
+
+          if (!passwordEncoder.matches(currentPassword, target.getPassword())) {
+
+            model.addAttribute("error", "Current password is incorrect");
+            model.addAttribute("openTab", "password");
+
+            return "profile";
+          }
+
+          if (!edited.getPassword().equals(pass2)) {
+
+            model.addAttribute("error", "Passwords do not match");
+            model.addAttribute("openTab", "password");
+
+            return "profile";
+          }
+
+          target.setPassword(encodePassword(edited.getPassword()));
+        }
+
+      } else if ("userNameEmail".equals(formType)) {
+        if (edited.getUsername() != null
+            && !edited.getUsername().isEmpty()) {
+
+          Long existingUsername = entityManager
+              .createQuery("""
+                      SELECT COUNT(u)
+                      FROM User u
+                      WHERE u.username = :username
+                      AND u.id != :id
+                  """, Long.class)
+              .setParameter("username", edited.getUsername())
+              .setParameter("id", target.getId())
+              .getSingleResult();
+
+          if (existingUsername > 0) {
+            model.addAttribute("error", "Username already in use");
+            model.addAttribute("user", target);
+            model.addAttribute("openTab", "name");
+            return "profile";
+          }
+
+          target.setUsername(edited.getUsername());
+        }
+
+        if (edited.getEmail() != null
+            && !edited.getEmail().isEmpty()) {
+
+          Long existingEmail = entityManager
+              .createQuery("""
+                      SELECT COUNT(u)
+                      FROM User u
+                      WHERE u.email = :email
+                      AND u.id != :id
+                  """, Long.class)
+              .setParameter("email", edited.getEmail())
+              .setParameter("id", target.getId())
+              .getSingleResult();
+
+          if (existingEmail > 0) {
+            model.addAttribute("error", "Email already in use");
+            model.addAttribute("user", target);
+            model.addAttribute("openTab", "name");
+            return "profile";
+          }
+
+          target.setEmail(edited.getEmail());
+        }
+      } else if ("avatar".equals(formType)) {
+        log.info("Avatar update should be handled in /pic endpoint");
+
+      } else {
+        model.addAttribute("error", "Unknown form type");
+        return "profile";
+      }
+
+      entityManager.merge(target);
       entityManager.flush();
-      id = target.getId();
-    }
 
-    // retrieve requested user
-    target = entityManager.find(User.class, id);
-    model.addAttribute("user", target);
+      // update user session
+      if (requester.getId() == target.getId()) {
+        session.setAttribute("u", target);
+      }
 
-    if (requester.getId() != target.getId() &&
-        !requester.hasRole("ADMIN")) {
-      throw new NoEsTuPerfilException();
-    }
+      return "redirect:/user/" + id;
 
-    if ("password".equals(formType)) {
-      if (edited.getPassword() != null && !edited.getPassword().isEmpty()) {
+    } catch (
 
-        if (!passwordEncoder.matches(currentPassword, target.getPassword())) {
-          model.addAttribute("error", "current_password_incorrect");
-          model.addAttribute("openTab", "password");
-          return "profile";
+    Exception e) {
+
+      log.error("Error updating user", e);
+
+      String msg = e.getMessage();
+
+      if (msg != null) {
+
+        String lower = msg.toLowerCase();
+
+        if (lower.contains("username")) {
+          msg = "Username already in use";
+        } else if (lower.contains("email")) {
+          msg = "Email already in use";
         }
-
-        if (!edited.getPassword().equals(pass2)) {
-          log.warn("Passwords do not match - returning to profile");
-
-          response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-          model.addAttribute("error", "password_mismatch");
-          model.addAttribute("openTab", "password");
-
-          return "profile";
-        }
-
-        target.setPassword(encodePassword(edited.getPassword()));
       }
 
-    } else if ("userNameEmail".equals(formType)) {
+      model.addAttribute("error",
+          msg != null ? msg : "Error updating profile");
 
-      if (edited.getUsername() != null && !edited.getUsername().isEmpty()) {
-        target.setUsername(edited.getUsername());
-      }
+      model.addAttribute("openTab", formType);
 
-      if (edited.getEmail() != null && !edited.getEmail().isEmpty()) {
-        target.setEmail(edited.getEmail());
-      }
+      User target = entityManager.find(User.class, id);
+      model.addAttribute("user", target);
 
-    } else if ("avatar".equals(formType)) {
-
-      log.info("Avatar update should be handled in /pic endpoint");
-
-    } else {
-      log.warn("Unknown formType or null - no changes applied");
+      return "profile";
     }
-
-    // update user session so that changes are persisted in the session, too
-    if (requester.getId() == target.getId()) {
-      session.setAttribute("u", target);
-    }
-
-    return "redirect:/user/" + id;
   }
 
   /**

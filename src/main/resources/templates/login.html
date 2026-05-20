@@ -20,17 +20,16 @@
                 <div class="col-12 col-sm-10 col-md-6 col-lg-4">
                     <div class="auth-box">
 
-                        <div th:if="${error == 'password_mismatch'}" class="alert alert-danger">
-                            Passwords do not match.
+                        <div th:if="${error}" class="alert alert-danger">
+                            <span th:text="${error}"></span>
+                        </div>
+                        <div th:if="${param.error}" class="alert alert-danger">
+                            Invalid username or password
                         </div>
 
                         <!-- LOGIN FORM -->
                         <form id="loginForm" method="post" th:action="@{/login}">
                             <h2 class="mb-4 text-center">Sign in</h2>
-
-                            <p th:if="${loginError}" class="text-danger text-center">
-                                Invalid username or password
-                            </p>
 
                             <div class="mb-3">
                                 <input type="text" name="username" class="form-control" placeholder="Username" required>
