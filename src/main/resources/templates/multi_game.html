@@ -71,17 +71,17 @@
         </div>
 
         <!-- CHAT PANEL -->
-        <div id="chatPanel" class="border-start bg-light position-fixed h-100" style="width: 320px; right: 0; top: 0; transition: transform 0.3s ease;
-        z-index: 2000;">
+        <div id="chatPanel" class="border-start bg-light position-fixed h-100 chat-closed"
+            style="width: 320px; right: 0; top: 0; transition: transform 0.3s ease; z-index: 2000;">
             <div class="p-2 d-flex flex-column h-100">
-
                 <h5>Chat</h5>
+                <div id="mensajes" class="border rounded p-2 mb-2 flex-grow-1"
+                    style="overflow-y:auto; background: white;"></div>
 
-                <div id="mensajes" class="border rounded p-2 mb-2 flex-grow-1" style="overflow-y:auto;"></div>
+                <input id="chat-input" class="form-control mb-2" placeholder="Mensaje..."
+                    onkeydown="if(event.key === 'Enter') GameClient.enviarMensajeChat()" />
 
-                <input class="form-control mb-2" placeholder="Mensaje..." />
-
-                <button class="btn btn-primary w-100">
+                <button id="chat-send-btn" class="btn btn-primary w-100" onclick="GameClient.enviarMensajeChat()">
                     Enviar
                 </button>
 
@@ -229,11 +229,13 @@
                 gameCode: /*[[${game.code}]]*/ "",
                 currentUserId: /*[[${u.id}]]*/ 0,
                 hostId: /*[[${game.host.id}]]*/ 0,
+                currentUsername: /*[[${u.username}]]*/ "",
                 categories: /*[[${categories}]]*/[],
                 mode: "match"
             }, ws);
 
             GameClient.loadPlayers();
+            GameClient.loadMessages();
         });
 
     </script>

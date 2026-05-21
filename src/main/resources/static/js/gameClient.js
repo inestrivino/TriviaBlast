@@ -82,6 +82,11 @@ window.GameClient = (() => {
             }
         }
 
+        if (data.text !== undefined) {
+            agregarMensajeAlPanel(data);
+            return;
+        }
+
         switch (data.type) {
             case "game_finished":
                 renderizarFinDePartida(data.podium);
@@ -797,6 +802,88 @@ window.GameClient = (() => {
     }
 
     // -------------------------------
+    // CHAT ACTIONS
+    // -------------------------------
+    function loadMessages() {
+        return go(`/game/${cfg.gameCode}/msg`, "GET")
+            .then(mensajes => {
+                const contenedor = document.getElementById("mensajes");
+                if (!contenedor) return;
+
+                contenedor.innerHTML = ""; // Limpiamos el panel
+                mensajes.forEach(m => agregarMensajeAlPanel(m));
+            })
+            .catch(err => console.error("Error cargando mensajes del chat:", err));
+    }
+
+    function enviarMensajeChat() {
+        const input = document.getElementById("chat-input");
+        const btn = document.getElementById("chat-send-btn");
+        if (!input || !input.value.trim()) return;
+
+        const texto = input.value.trim();
+        input.value = ""; // Vaciamos el input inmediatamente para dar fluidez
+
+        if (btn) btn.disabled = true;
+
+        // Mandamos el JSON estructurado como espera tu @PostMapping
+        go(`/game/${cfg.gameCode}/msg`, "POST", { message: texto })
+            .then(() => {
+                if (btn) btn.disabled = false;
+                input.focus();
+            })
+            .catch(err => {
+                console.error("Error al enviar mensaje:", err);
+                if (btn) btn.disabled = false;
+            });
+    }
+
+    function agregarMensajeAlPanel(msg) {
+        const contenedor = document.getElementById("mensajes");
+        if (!contenedor) return;
+
+        const divMsg = document.createElement("div");
+        divMsg.className = "mb-2 p-2 rounded shadow-sm border-0";
+
+        // 1. Corregido: Usamos 'msg.sent' que es lo que viene de tu servidor
+        const fechaRaw = msg.sent || new Date();
+        const d = new Date(fechaRaw);
+        const horaFormateada = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        // 2. Corregido: Comparamos el campo 'msg.from' con tu username guardado en configuración
+        const esMio = msg.from === cfg.currentUsername;
+
+        if (esMio) {
+            divMsg.style.backgroundColor = "#e1f5fe"; // Azul sutil para ti
+            divMsg.style.marginLeft = "20px";
+            divMsg.className += " text-end";
+        } else {
+            divMsg.style.backgroundColor = "#ffffff"; // Blanco limpio para el resto
+            divMsg.style.marginRight = "20px";
+            divMsg.style.borderLeft = "4px solid #0d6efd"; // Línea decorativa
+        }
+
+        // 3. Corregido: Cambiamos 'msg.sender' por 'msg.from' y 'msg.text' se mantiene igual
+        divMsg.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center mb-1 text-muted fw-bold" style="font-size: 0.75rem;">
+                <span class="text-primary">${escapeHtml(msg.from)}</span>
+                <span style="font-size: 0.7rem; font-weight: normal;"><i class="bi bi-clock me-1"></i>${horaFormateada}</span>
+            </div>
+            <span class="d-block text-start text-dark" style="word-break: break-word; max-width: 100%; font-size: 0.9rem;">
+                ${escapeHtml(msg.text)}
+            </span>
+        `;
+
+        contenedor.appendChild(divMsg);
+
+        // Auto-scroll
+        contenedor.scrollTo({
+            top: contenedor.scrollHeight,
+            behavior: 'smooth'
+        });
+    }
+
+    // -------------------------------
     // HELPERS
     // -------------------------------
     function escapeHtml(str) {
@@ -817,7 +904,10 @@ window.GameClient = (() => {
         renderPlayers,
         setStatus,
         initBoard,
-        loadPlayers
+        loadPlayers,
+        loadMessages,
+        enviarMensajeChat,
+        agregarMensajeAlPanel
     };
 
 })();
