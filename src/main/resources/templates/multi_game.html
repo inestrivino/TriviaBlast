@@ -101,13 +101,13 @@
         </div>
 
         <!-- BOARD CENTER -->
-        <div class="flex-grow-1 d-flex justify-content-center align-items-center">
+        <div class="flex-grow-1 d-flex justify-content-center align-items-center" id="contenedor-juego-activo">
             <div class="container-fluid d-flex flex-column justify-content-center min-vh-100 py-4">
 
                 <div class="text-center mt-3">
                     <!-- El botón empieza oculto (d-none) por defecto; lo mostraremos solo a quien le toque -->
                     <button id="btn-tirar-dado" class="btn btn-primary btn-lg fw-bold px-5 py-3 shadow d-none">
-                        🎲 ¡Tirar Dado!
+                        Roll the dice!
                     </button>
 
                     <!-- Contenedor para ver el resultado de la última tirada -->
@@ -127,6 +127,44 @@
 
                 </div>
 
+            </div>
+        </div>
+
+        <div id="contenedor-podio-final" class="container d-none text-center my-5">
+            <h1 class="display-4 fw-bold text-primary mb-4">The game is over!</h1>
+            <div class="row justify-content-center">
+                <div class="col-md-8">
+                    <div class="card shadow-lg p-4">
+                        <h3 class="mb-4 text-muted">Final score</h3>
+                        <div id="lista-podio" class="list-group">
+                        </div>
+                        <a href="/" class="btn btn-primary btn-lg mt-4 px-5">Return to the main menu</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="questionModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1"
+            aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content shadow-lg border-0">
+                    <div class="modal-header d-flex flex-column align-items-start">
+                        <h5 class="modal-title fw-bold" id="modal-player-title">Turn for player: ...</h5>
+
+                        <div class="d-flex gap-3 mt-1 small text-muted">
+                            <span>Dice result: <strong id="modal-dice-roll" class="text-dark">-</strong></span>
+                            <span>Category: <strong id="modal-category-label" class="text-dark">-</strong></span>
+                        </div>
+                    </div>
+                    <div class="modal-body p-4">
+                        <h4 id="multi-question-text" class="text-secondary mb-4"></h4>
+                        <div id="multi-answers-container" class="d-grid gap-2"></div>
+                        <div id="multi-feedback" class="text-center fw-bold fs-5 mt-3"></div>
+                    </div>
+                    <div class="modal-footer d-none" id="modal-footer-controls">
+                        <button id="btn-cerrar-modal" class="btn btn-primary w-100">Continuar partida</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -181,6 +219,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@svgdotjs/svg.js"></script>
     <script th:src="@{/js/stomp.js}" src="js/stomp.js"></script>
     <script th:src="@{/js/iw.js}" src="js/iw.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script th:src="@{/js/gameClient.js}"></script>
     <script th:inline="javascript">
 

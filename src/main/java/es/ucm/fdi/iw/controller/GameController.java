@@ -410,10 +410,7 @@ public class GameController {
         messagingTemplate.convertAndSend("/topic/" + code, wsMsg);
 
         // Respuesta HTTP
-        return Map.of(
-                "status", "kicked",
-                "kickedPlayer", userId,
-                "players", players);
+        return Map.of("status", "kicked", "kickedPlayer", userId, "players", players);
     }
 
     @PostMapping("/{code}/leave")
@@ -780,15 +777,9 @@ public class GameController {
         if (u == null)
             return Map.of("status", "error", "message", "No autenticado");
 
-        // 1. Recuperar juego
-        Game game;
-        try {
-            game = entityManager.createNamedQuery("Game.byCode", Game.class)
-                    .setParameter("code", code)
-                    .getSingleResult();
-        } catch (Exception e) {
-            return Map.of("status", "error", "message", "Partida no encontrada");
-        }
+        Game game = entityManager.createNamedQuery("Game.byCode", Game.class)
+                .setParameter("code", code)
+                .getSingleResult();
 
         if (!"STARTED".equalsIgnoreCase(game.getGameState())) {
             return Map.of("status", "error", "message", "La partida no está activa");
@@ -801,62 +792,350 @@ public class GameController {
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> players = (List<Map<String, Object>>) state.get("players");
         @SuppressWarnings("unchecked")
-        Map<String, Object> turnOrder = (Map<String, Object>) state.get("turnOrder");
-        @SuppressWarnings("unchecked")
         Map<String, Object> turnInfo = (Map<String, Object>) state.get("turnInfo");
 
-        // 2. Validación crítica de seguridad: ¿Es realmente el turno del usuario que
-        // invoca la ruta?
-        long currentTurnPlayerId = ((Number) state.get("currentTurnPlayerId")).longValue();
-        if (u.getId() != currentTurnPlayerId) {
-            return Map.of("status", "error", "message", "No es tu turno de lanzar el dado");
+        if ("QUESTION_PENDING".equalsIgnoreCase((String) turnInfo.get("subState"))) {
+            return Map.of("status", "error", "message", "Hay una pregunta pendiente");
         }
 
-        // 3. Tirar el dado (1 al 6)
+        long currentTurnPlayerId = ((Number) state.get("currentTurnPlayerId")).longValue();
+        if (u.getId() != currentTurnPlayerId) {
+            return Map.of("status", "error", "message", "No es tu turno");
+        }
+
+        // Tirar dado, mover jugador
         int diceRoll = random.nextInt(6) + 1;
         state.put("lastDiceRoll", diceRoll);
 
-        // 4. Mover al jugador en la lista
+        int targetPos = 0;
         for (Map<String, Object> p : players) {
             if (((Number) p.get("id")).longValue() == currentTurnPlayerId) {
                 int currentPos = ((Number) p.getOrDefault("boardPosition", 0)).intValue();
-                int newPos = currentPos + diceRoll;
-
-                if (newPos >= 65) {
-                    newPos = 65; // Casilla GOAL
-                    game.setGameState("FINISHED");
+                targetPos = currentPos + diceRoll;
+                if (targetPos >= 65) {
+                    targetPos = 65;
+                    manejarFinDePartida(game, state, players);
                 }
-                p.put("boardPosition", newPos);
+                p.put("boardPosition", targetPos);
                 break;
             }
         }
 
-        // 5. Calcular el próximo turno (solo si la partida no ha terminado)
-        if (!"FINISHED".equalsIgnoreCase(game.getGameState())) {
-            Number currentTurnIdxNum = (Number) turnInfo.get("currentTurn");
-            int nextTurnIdx = currentTurnIdxNum.intValue() + 1;
+        if (players != null && !players.isEmpty()) {
+            // Creamos una copia de la lista para ordenarla sin romper el orden original de
+            // almacenamiento
+            List<Map<String, Object>> sortedPlayers = new ArrayList<>(players);
 
-            if (!turnOrder.containsKey(String.valueOf(nextTurnIdx))) {
-                nextTurnIdx = 1; // Volver al primer jugador del ciclo
+            // Ordenamos de mayor a menor según su 'boardPosition'
+            sortedPlayers.sort((p1, p2) -> {
+                int pos1 = ((Number) p1.getOrDefault("boardPosition", 0)).intValue();
+                int pos2 = ((Number) p2.getOrDefault("boardPosition", 0)).intValue();
+                return Integer.compare(pos2, pos1);
+            });
+
+            // Asignamos las posiciones de la carrera
+            int currentRank = 1;
+            int lastPos = -1;
+
+            for (int i = 0; i < sortedPlayers.size(); i++) {
+                Map<String, Object> p = sortedPlayers.get(i);
+                int pos = ((Number) p.getOrDefault("boardPosition", 0)).intValue();
+
+                // Si la posición de este jugador es menor que la del anterior, el ranking
+                // avanza
+                if (i > 0 && pos < lastPos) {
+                    currentRank = i + 1;
+                }
+
+                p.put("gamePosition", currentRank);
+                lastPos = pos;
             }
-            turnInfo.put("currentTurn", nextTurnIdx);
-
-            // Actualizar el ID del jugador activo para la siguiente ronda
-            Object nextPlayerIdObj = turnOrder.get(String.valueOf(nextTurnIdx));
-            state.put("currentTurnPlayerId", ((Number) nextPlayerIdObj).longValue());
         }
 
-        // 6. Guardar los cambios
+        // Control del Streak y Obtención de la Pregunta según Casilla
+        int currentStreak = ((Number) turnInfo.getOrDefault("currentStreak", 1)).intValue();
+        QuestionDataPublicDTO publicQuestion = null;
+
+        if (!"FINISHED".equalsIgnoreCase(game.getGameState()) && currentStreak < 3 && targetPos >= 1
+                && targetPos <= 64) {
+
+            Set<TriviaCategory> categories = game.getCategories();
+            String categoryUrlParam = "";
+
+            if (categories != null && !categories.isEmpty()) {
+                List<TriviaCategory> categoriesList = new ArrayList<>(categories);
+                int categoryIndex = (targetPos - 1) % categoriesList.size();
+                TriviaCategory chosenCategory = categoriesList.get(categoryIndex);
+                categoryUrlParam = "&category=" + chosenCategory.getId();
+
+                System.out.println("CASILLA: " + targetPos + " -> INDEX ELEGIDO: " + categoryIndex + " -> CATEGORIA: "
+                        + chosenCategory.getLabel());
+            }
+
+            String url = "https://opentdb.com/api.php?amount=1" + categoryUrlParam + "&difficulty="
+                    + game.getDifficulty().toLowerCase();
+
+            try {
+                RestTemplate rest = new RestTemplate();
+                Map<String, Object> apiRes = rest.getForObject(url, Map.class);
+                List<Map<String, Object>> results = (List<Map<String, Object>>) apiRes.get("results");
+
+                if (results != null && !results.isEmpty()) {
+                    Map<String, Object> q = results.get(0);
+                    String correct = (String) q.get("correct_answer");
+
+                    List<String> answers = new ArrayList<>();
+                    answers.add(correct);
+                    answers.addAll((List<String>) q.get("incorrect_answers"));
+                    Collections.shuffle(answers);
+
+                    QuestionDataPrivateDTO privateQuestion = new QuestionDataPrivateDTO(0, (String) q.get("question"),
+                            answers, correct);
+                    session.setAttribute("activeMultiplayerQuestion", privateQuestion);
+
+                    publicQuestion = new QuestionDataPublicDTO(0, (String) q.get("question"), answers);
+                    turnInfo.put("subState", "QUESTION_PENDING");
+                }
+            } catch (Exception ex) {
+                System.out.println("Error al invocar API externa: " + ex.getMessage());
+                currentStreak = 3;
+            }
+        } else if (currentStreak >= 3) {
+            turnInfo.put("subState", "NORMAL");
+        }
+
+        if (!"QUESTION_PENDING".equalsIgnoreCase((String) turnInfo.get("subState"))
+                && !"FINISHED".equalsIgnoreCase(game.getGameState())) {
+            avanzarSiguienteTurnoEstructural(state);
+        }
+
         game.setInternalState(mapper.writeValueAsString(state));
         entityManager.merge(game);
 
-        // 7. Emitir actualización en tiempo real a todos los clientes enganchados
-        messagingTemplate.convertAndSend("/topic/" + code, Map.of(
-                "type", "update",
-                "players", players,
-                "gameState", state));
+        if (publicQuestion != null) {
+            state.put("activeQuestion", publicQuestion);
+        }
 
-        return Map.of("status", "success", "diceRoll", diceRoll);
+        messagingTemplate.convertAndSend("/topic/" + code,
+                Map.of("type", "question", "players", players, "gameState", state));
+
+        return Map.of("status", "success");
+    }
+
+    // Helper interno para mover el puntero de turnos
+    private void avanzarSiguienteTurnoEstructural(Map<String, Object> state) {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> turnOrder = (Map<String, Object>) state.get("turnOrder");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> turnInfo = (Map<String, Object>) state.get("turnInfo");
+
+        Number currentTurnIdxNum = (Number) turnInfo.get("currentTurn");
+        int nextTurnIdx = currentTurnIdxNum.intValue() + 1;
+
+        if (!turnOrder.containsKey(String.valueOf(nextTurnIdx))) {
+            nextTurnIdx = 1;
+        }
+        turnInfo.put("currentTurn", nextTurnIdx);
+        turnInfo.put("currentStreak", 1);
+
+        Object nextPlayerIdObj = turnOrder.get(String.valueOf(nextTurnIdx));
+        state.put("currentTurnPlayerId", ((Number) nextPlayerIdObj).longValue());
+
+        turnInfo.put("subState", "NORMAL");
+        state.remove("activeQuestion");
+    }
+
+    private void manejarFinDePartida(Game game, Map<String, Object> state, List<Map<String, Object>> players)
+            throws JsonProcessingException {
+
+        ObjectMapper mapper = new ObjectMapper();
+
+        // 1. Cambiamos el estado global de la partida
+        game.setGameState("FINISHED");
+
+        // 2. Procesamos y persistimos los puntos de cada usuario en la Base de Datos
+        if (players != null) {
+            for (Map<String, Object> p : players) {
+                long userId = ((Number) p.get("id")).longValue();
+                int pointsInGame = ((Number) p.getOrDefault("points", 0)).intValue();
+                int positionInGame = ((Number) p.getOrDefault("gamePosition", 4)).intValue();
+
+                // Calculamos el bonus según la posición de la carrera
+                int bonus = 0;
+                switch (positionInGame) {
+                    case 1:
+                        bonus = 50;
+                        break;
+                    case 2:
+                        bonus = 25;
+                        break;
+                    case 3:
+                        bonus = 10;
+                        break;
+                    default:
+                        bonus = 0;
+                        break;
+                }
+
+                int totalPuntosAñadidos = pointsInGame + bonus;
+
+                // Buscamos al usuario real en la base de datos para actualizar su perfil de
+                // forma persistente
+                User userEntity = entityManager.find(User.class, userId);
+                if (userEntity != null) {
+                    // Asumiendo que tu entidad User tiene un campo 'score' o 'points' total e
+                    // histórico
+                    int currentGlobalScore = userEntity.getTotalPoints();
+                    userEntity.setTotalPoints(currentGlobalScore + totalPuntosAñadidos);
+                    entityManager.merge(userEntity); // Persistimos en la BD
+                }
+
+                // Guardamos también el desglose en el mapa temporal del jugador para que el
+                // front pueda mostrarlo
+                p.put("bonusPoints", bonus);
+                p.put("totalEarned", totalPuntosAñadidos);
+            }
+
+            // 3. Ordenamos la lista de jugadores por su posición final antes de mandarla al
+            // frontend
+            players.sort((p1, p2) -> {
+                int r1 = ((Number) p1.getOrDefault("gamePosition", 4)).intValue();
+                int r2 = ((Number) p2.getOrDefault("gamePosition", 4)).intValue();
+                return Integer.compare(r1, r2);
+            });
+        }
+
+        // 4. Guardamos el estado definitivo en el internalState de la partida
+        game.setInternalState(mapper.writeValueAsString(state));
+        entityManager.merge(game);
+
+        // 5. Emitimos el mensaje WebSocket exclusivo de fin de partida con el podio
+        // ordenado
+        messagingTemplate.convertAndSend("/topic/" + game.getCode(),
+                Map.of("type", "game_finished", "podium", players));
+    }
+
+    @PostMapping("/{code}/submit-answer")
+    @ResponseBody
+    @Transactional
+    public Map<String, Object> submitAnswer(@PathVariable String code,
+            @RequestBody Map<String, String> payload,
+            HttpSession session) throws JsonProcessingException {
+
+        // 1. Validar autenticación del usuario
+        User u = (User) session.getAttribute("u");
+        if (u == null)
+            return Map.of("status", "error", "message", "No autenticado");
+
+        // 2. Recuperar la partida de la Base de Datos
+        Game game = entityManager.createNamedQuery("Game.byCode", Game.class)
+                .setParameter("code", code)
+                .getSingleResult();
+
+        ObjectMapper mapper = new ObjectMapper();
+        Map<String, Object> state = mapper.readValue(game.getInternalState(), new TypeReference<Map<String, Object>>() {
+        });
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> turnInfo = (Map<String, Object>) state.get("turnInfo");
+
+        // 3. Validar si el juego realmente espera una respuesta
+        if (!"QUESTION_PENDING".equalsIgnoreCase((String) turnInfo.get("subState"))) {
+            return Map.of("status", "error", "message", "No hay ninguna pregunta activa");
+        }
+
+        // 4. Validar que quien responde sea el dueño legítimo del turno
+        long currentTurnPlayerId = ((Number) state.get("currentTurnPlayerId")).longValue();
+        if (u.getId() != currentTurnPlayerId) {
+            return Map.of("status", "error", "message", "No es tu turno de responder");
+        }
+
+        // 5. SE GESTIONA CON DTO PRIVADO EN SESIÓN
+        QuestionDataPrivateDTO privateQuestion = (QuestionDataPrivateDTO) session
+                .getAttribute("activeMultiplayerQuestion");
+        if (privateQuestion == null) {
+            return Map.of("status", "error", "message", "No se encontró la pregunta en tu sesión");
+        }
+
+        // 6. Comprobación ciega y segura de la respuesta
+        String clientAnswer = payload.get("answer");
+        String correctAnswer = privateQuestion.getCorrectAnswer();
+        boolean isCorrect = correctAnswer.equals(clientAnswer);
+
+        // Limpiamos inmediatamente la pregunta de la sesión para evitar re-envíos o
+        // exploits
+        session.removeAttribute("activeMultiplayerQuestion");
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> players = (List<Map<String, Object>>) state.get("players");
+
+        Map<String, Object> resolvedQuestion = new HashMap<>();
+        resolvedQuestion.put("question", privateQuestion.getQuestion());
+        resolvedQuestion.put("answers", privateQuestion.getAnswers());
+        resolvedQuestion.put("answered", true);
+        resolvedQuestion.put("selectedAnswer", clientAnswer);
+        resolvedQuestion.put("correctAnswer", correctAnswer);
+
+        // 8. Aplicar consecuencias de la respuesta
+        if (isCorrect) {
+            // Sumar 10 puntos al jugador en la lista interna
+            for (Map<String, Object> p : players) {
+                if (((Number) p.get("id")).longValue() == currentTurnPlayerId) {
+                    int currentPoints = ((Number) p.getOrDefault("points", 0)).intValue();
+                    p.put("points", currentPoints + 10);
+                    break;
+                }
+            }
+            // Incrementar racha (streak) para permitirle volver a tirar (máx 3 manejado en
+            // el roll-dice)
+            int streak = ((Number) turnInfo.get("currentStreak")).intValue();
+            turnInfo.put("currentStreak", streak + 1);
+
+            // Permitimos volver a tirar el dado poniendo el subState en NORMAL
+            turnInfo.put("subState", "NORMAL");
+        } else {
+            // Si falla, se rompe la racha, el subState vuelve a NORMAL y avanza el turno al
+            // siguiente
+            avanzarSiguienteTurnoEstructural(state);
+        }
+
+        // 9. Persistir el estado limpio en la BD (jugadores actualizados, turnos y
+        // subState NORMAL)
+        game.setInternalState(mapper.writeValueAsString(state));
+        entityManager.merge(game);
+
+        // 10. Inyectar temporalmente la resolución para que el WebSocket pinte los
+        // colores en los fronts
+        state.put("activeQuestion", resolvedQuestion);
+
+        messagingTemplate.convertAndSend("/topic/" + code,
+                Map.of("type", "update", "players", players, "gameState", state));
+
+        return Map.of("status", "success", "correct", isCorrect);
+    }
+
+    @PostMapping("/{code}/close-question-modal")
+    @ResponseBody
+    @Transactional
+    public Map<String, Object> closeQuestionModal(@PathVariable String code, HttpSession session)
+            throws JsonProcessingException {
+        User u = (User) session.getAttribute("u");
+        if (u == null)
+            return Map.of("status", "error", "message", "No autenticado");
+
+        Game game = entityManager.createNamedQuery("Game.byCode", Game.class).setParameter("code", code)
+                .getSingleResult();
+        ObjectMapper mapper = new ObjectMapper();
+        Map<String, Object> state = mapper.readValue(game.getInternalState(), new TypeReference<Map<String, Object>>() {
+        });
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> players = (List<Map<String, Object>>) state.get("players");
+
+        messagingTemplate.convertAndSend("/topic/" + code,
+                Map.of("type", "update", "players", players, "gameState", state));
+
+        return Map.of("status", "success");
     }
 
     /*

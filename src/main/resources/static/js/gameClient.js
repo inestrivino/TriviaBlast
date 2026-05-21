@@ -72,33 +72,47 @@ window.GameClient = (() => {
 
     function handleWSMessage(msg) {
         if (!msg) return;
+        let data = msg;
+        if (msg.body) {
+            try {
+                data = JSON.parse(msg.body);
+            } catch (e) {
+                console.error("Error parseando el mensaje del WebSocket:", e);
+                return;
+            }
+        }
 
-        switch (msg.type) {
-            case "update":
-                if (msg.players) {
-                    renderPlayers(msg.players);
-                }
+        switch (data.type) {
+            case "game_finished":
+                renderizarFinDePartida(data.podium);
+                break;
 
-                // Sincronizamos el estado completo en la variable interna del módulo
-                if (msg.gameState) {
-                    currentGameState = msg.gameState;
-
-                    // Mostrar gráficamente el dado obtenido
-                    if (msg.gameState.lastDiceRoll) {
-                        console.log(`¡El jugador activo sacó un: ${msg.gameState.lastDiceRoll}!`);
-                        const dadoDiv = document.getElementById("dado-resultado");
-                        if (dadoDiv) {
-                            const dadosIconos = ["", "1", "2", "3", "4", "5", "6"];
-                            dadoDiv.innerText = `Última tirada: ${dadosIconos[msg.gameState.lastDiceRoll]}`;
-                        }
-                    }
-                } else if (msg.players) {
-                    currentGameState.players = msg.players;
-                }
+            case "question":
+                if (data.players) renderPlayers(data.players);
+                if (data.gameState) currentGameState = data.gameState;
 
                 initBoard();
                 actualizarVisibilidadDado();
+
+                if (data.gameState && data.gameState.activeQuestion) {
+                    gestionarModalPregunta(data.gameState.activeQuestion);
+                }
                 break;
+
+            case "update":
+                if (data.players) renderPlayers(data.players);
+                if (data.gameState) currentGameState = data.gameState;
+
+                initBoard();
+                actualizarVisibilidadDado();
+
+                if (data.gameState && data.gameState.activeQuestion) {
+                    gestionarModalPregunta(data.gameState.activeQuestion);
+                } else {
+                    gestionarModalPregunta(null);
+                }
+                break;
+
             case "game_start":
                 if (typeof setStatus === "function") setStatus("Game starting...", "success");
                 setTimeout(() => {
@@ -107,17 +121,17 @@ window.GameClient = (() => {
                 break;
 
             case "player_kicked":
-                if (msg.players) {
-                    renderPlayers(msg.players);
+                if (data.players) {
+                    renderPlayers(data.players);
                     if (!window.currentGameState) window.currentGameState = {};
-                    window.currentGameState.players = msg.players;
+                    window.currentGameState.players = data.players;
                 }
-                if (msg.kickedPlayer === "all") {
-                    if (typeof setStatus === "function") setStatus(msg.message || "Host left the game", "danger");
+                if (data.kickedPlayer === "all") {
+                    if (typeof setStatus === "function") setStatus(data.message || "Host left the game", "danger");
                     setTimeout(() => { window.location.href = "/"; }, 1500);
                     break;
                 }
-                if (Number(msg.kickedPlayer) === Number(cfg.currentUserId)) {
+                if (Number(data.kickedPlayer) === Number(cfg.currentUserId)) {
                     if (typeof setStatus === "function") setStatus("You've been kicked", "danger");
                     setTimeout(() => { window.location.href = "/"; }, 1500);
                 }
@@ -572,6 +586,196 @@ window.GameClient = (() => {
                     });
             });
             dadoListenerAsignado = true;
+        }
+    }
+
+    // Instancia del modal de Bootstrap
+    let bootstrapModalInstance = null;
+
+    function gestionarModalPregunta(activeQuestion) {
+        const modalEl = document.getElementById("questionModal");
+        if (!modalEl) return;
+
+        if (!bootstrapModalInstance) {
+            bootstrapModalInstance = new bootstrap.Modal(modalEl);
+        }
+
+        if (!activeQuestion) {
+            bootstrapModalInstance.hide();
+            return;
+        }
+
+        const q = activeQuestion;
+        const state = currentGameState || {};
+
+        const miTurno = Number(state.currentTurnPlayerId) === Number(cfg.currentUserId);
+
+        const jugadorActivo = (state.players || []).find(p => Number(p.id) === Number(state.currentTurnPlayerId));
+        document.getElementById("modal-player-title").innerText = `Turn for player: ${jugadorActivo ? jugadorActivo.username : 'Player'}`;
+
+        const diceRollEl = document.getElementById("modal-dice-roll");
+        if (diceRollEl) {
+            diceRollEl.innerText = state.lastDiceRoll ? state.lastDiceRoll : "-";
+        }
+
+        const categoryLabelEl = document.getElementById("modal-category-label");
+        if (categoryLabelEl) {
+            let nombreCategoria = "General";
+
+            const categoriasPartida = cfg.categories || [];
+
+            if (jugadorActivo && categoriasPartida.length > 0) {
+                const pos = jugadorActivo.boardPosition || 0;
+                if (pos >= 1 && pos <= 64) {
+                    const idx = (pos - 1) % categoriasPartida.length;
+                    const catElegida = categoriasPartida[idx];
+                    nombreCategoria = catElegida.label || catElegida.name || catElegida;
+                }
+            }
+            categoryLabelEl.innerText = nombreCategoria;
+        }
+
+        document.getElementById("multi-question-text").innerHTML = q.question;
+
+        const container = document.getElementById("multi-answers-container");
+        const feedback = document.getElementById("multi-feedback");
+        const footer = document.getElementById("modal-footer-controls");
+
+        container.innerHTML = "";
+        feedback.innerHTML = "";
+        footer.classList.add("d-none");
+
+        // Renderizar las respuestas en forma de botones
+        q.answers.forEach(answer => {
+            const btn = document.createElement("button");
+            btn.className = "btn btn-outline-primary text-start px-3 py-2 fw-semibold";
+            btn.innerHTML = answer;
+
+            if (!miTurno || q.answered) {
+                btn.disabled = true;
+            }
+
+            // EVALUACIÓN VISUAL TRAS RESPONDER:
+            if (q.answered) {
+                const esLaQueSePulso = answer === q.selectedAnswer;
+                const esLaCorrectaReal = answer === q.correctAnswer;
+
+                if (esLaCorrectaReal) {
+                    btn.classList.replace("btn-outline-primary", "btn-success");
+                } else if (esLaQueSePulso) {
+                    btn.classList.replace("btn-outline-primary", "btn-danger");
+                }
+            } else {
+                btn.onclick = () => enviarRespuestaMulti(answer, btn);
+            }
+
+            container.appendChild(btn);
+        });
+
+        // REVELACIÓN DEL RESULTADO:
+        if (q.answered) {
+            const acierto = q.selectedAnswer === q.correctAnswer;
+            feedback.className = acierto ? "text-success text-center mt-3 fw-bold fs-5" : "text-danger text-center mt-3 fw-bold fs-5";
+            feedback.textContent = acierto ? "Correct!" : "Incorrect";
+
+            if (miTurno) {
+                footer.classList.remove("d-none");
+                document.getElementById("btn-cerrar-modal").onclick = () => {
+                    const headers = { 'Content-Type': 'application/json' };
+                    if (config && config.csrf && config.csrf.header && config.csrf.value) {
+                        headers[config.csrf.header] = config.csrf.value;
+                    }
+
+                    fetch(`/game/${cfg.gameCode}/close-question-modal`, {
+                        method: 'POST',
+                        headers: headers
+                    });
+                };
+            }
+        }
+
+        bootstrapModalInstance.show();
+    }
+
+    function enviarRespuestaMulti(answer, botonPulsado) {
+        // Bloqueamos los botones locales de inmediato para evitar clicks fantasmas
+        const hijos = document.getElementById("multi-answers-container").children;
+        Array.from(hijos).forEach(b => b.disabled = true);
+
+        const headers = { 'Content-Type': 'application/json' };
+        if (config && config.csrf && config.csrf.header && config.csrf.value) {
+            headers[config.csrf.header] = config.csrf.value;
+        }
+
+        fetch(`/game/${cfg.gameCode}/submit-answer`, {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify({
+                answer: answer
+            })
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === "error") {
+                    alert(data.message);
+                    // Si el servidor da un error de validación, liberamos los botones
+                    Array.from(hijos).forEach(b => b.disabled = false);
+                }
+            })
+            .catch(err => {
+                console.error("Error al enviar la respuesta:", err);
+                Array.from(hijos).forEach(b => b.disabled = false);
+            });
+    }
+
+    function renderizarFinDePartida(podium) {
+        console.log("HEMOS ENTRADO")
+        // 1. Si hay algún modal de pregunta abierto en cualquier pantalla, lo cerramos
+        if (bootstrapModalInstance) {
+            bootstrapModalInstance.hide();
+        }
+
+        // 2. Ocultamos el tablero y el panel de jugadores por completo
+        const zonaJuego = document.getElementById("contenedor-juego-activo");
+        if (zonaJuego) zonaJuego.classList.add("d-none");
+
+        // 3. Mostramos el contenedor del podio final
+        const zonaPodio = document.getElementById("contenedor-podio-final");
+        if (zonaPodio) zonaPodio.classList.remove("d-none");
+
+        // 4. Rellenamos la lista de jugadores con su desglose de puntos
+        const listaPodioEl = document.getElementById("lista-podio");
+        if (listaPodioEl) {
+            listaPodioEl.innerHTML = ""; // Limpiamos residuos
+
+            podium.forEach((player) => {
+                const fila = document.createElement("div");
+
+                // Estilo especial para los 3 primeros puestos usando clases de Bootstrap
+                let claseMedalla = "bg-light";
+                let iconoMedalla = "";
+
+                if (player.gamePosition === 1) { claseMedalla = "bg-warning bg-opacity-25 border-warning"; iconoMedalla = "🥇"; }
+                else if (player.gamePosition === 2) { claseMedalla = "bg-secondary bg-opacity-10"; iconoMedalla = "🥈"; }
+                else if (player.gamePosition === 3) { claseMedalla = "bg-danger bg-opacity-10"; iconoMedalla = "🥉"; }
+
+                fila.className = `list-group-item d-flex justify-content-between align-items-center p-3 mb-2 rounded shadow-sm ${claseMedalla}`;
+
+                fila.innerHTML = `
+                    <div class="text-start">
+                        <span class="fs-4 me-2">${iconoMedalla}</span>
+                        <strong class="fs-5 text-dark">${player.gamePosition}º - ${player.username}</strong>
+                    </div>
+                    <div class="text-end">
+                        <span class="badge bg-primary rounded-pill fs-6 px-3">${player.totalEarned} pts totales</span>
+                        <div class="small text-muted mt-1" style="font-size: 0.8rem;">
+                            (${player.points} juego + ${player.bonusPoints} bonus)
+                        </div>
+                    </div>
+                `;
+
+                listaPodioEl.appendChild(fila);
+            });
         }
     }
 

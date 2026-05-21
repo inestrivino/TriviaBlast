@@ -100,3 +100,11 @@ The connection was not closed by the application and is garbage collected [90018
 	at org.h2.message.DbException.getJdbcSQLException(DbException.java:690)
 	at org.h2.message.DbException.getJdbcSQLException(DbException.java:489)
 	... 94 more
+2026-05-21 18:16:09.789695+02:00 jdbc[13]: exception
+org.h2.jdbc.JdbcSQLSyntaxErrorException: Error de Sintaxis en sentencia SQL "[*]GAME"; se esperaba "GRANT"
+Syntax error in SQL statement "[*]GAME"; expected "GRANT"; SQL statement:
+GAME [42001-232]
+2026-05-21 18:16:10.371485+02:00 jdbc[13]: exception
+org.h2.jdbc.JdbcSQLSyntaxErrorException: Error de Sintaxis en sentencia SQL "[*]GAME"; se esperaba "GRANT"
+Syntax error in SQL statement "[*]GAME"; expected "GRANT"; SQL statement:
+GAME [42001-232]
