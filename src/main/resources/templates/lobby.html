@@ -65,217 +65,53 @@
 
     <th:block th:replace="~{fragments/footer.html :: footer}" />
 
+    <script th:src="@{/js/gameClient.js}"></script>
     <script th:inline="javascript">
-        const gameCode = /*[[${game.code}]]*/ "XXXX";
-        const isHost = /*[[${isHost}]]*/ false;
-        const currentUserId = /*[[${u != null ? u.id : 0}]]*/ 0;
-        const hostId = /*[[${game.host.id}]]*/ 0;
-
-        const lobbyTopic = `/topic/${gameCode}`;
-        let stompConnected = false;
-
         document.addEventListener("DOMContentLoaded", () => {
-            setStatus("Conectando al servidor...", "info");
 
-            function subscribeLobby() {
-                if (!ws.connected) {
-                    setTimeout(subscribeLobby, 200);
-                    return;
-                }
-                ws.subscribe(lobbyTopic, handleWsMessage);
-            }
+            GameClient.init({
+                gameCode: /*[[${game.code}]]*/ "",
+                currentUserId: /*[[${u != null ? u.id : 0}]]*/ 0,
+                hostId: /*[[${game.host.id}]]*/ 0,
+                isHost: /*[[${isHost}]]*/ false,
+                mode: "lobby"
+            }, ws);
 
-            subscribeLobby();
+            GameClient.joinLobby();
 
-            // Unirse al lobby
-            let joined = false;
-            function joinLobbyOnce() {
-                if (joined) return;
-                joined = true;
-                joinLobby();
-            }
-            joinLobbyOnce();
-
-            // Botón start (solo host)
+            // START BUTTON
             const startBtn = document.getElementById("start-btn");
             if (startBtn) {
                 startBtn.addEventListener("click", () => {
-                    startBtn.disabled = true;
-                    startBtn.textContent = "Iniciando...";
-                    go(`${config.rootUrl}/game/${gameCode}/start`, "POST")
-                        .then(d => {
-                            if (d.status === "started") {
-                                setStatus("Game started! Redirecting...", "success");
-                                setTimeout(() => {
-                                    window.location.href = config.rootUrl + "/game/multi_game/" + gameCode;
-                                }, 800);
-                            } else {
-                                setStatus("Error: " + (d.message || "unknown"), "danger");
-                                startBtn.disabled = false;
-                                startBtn.textContent = "Start Game";
-                            }
-                        })
-                        .catch(e => {
-                            console.error("Error starting game", e);
-                            setStatus("Error starting the game", "danger");
-                            startBtn.disabled = false;
-                            startBtn.textContent = "Start Game";
-                        });
+                    GameClient.startGame(startBtn);
                 });
             }
 
-            // Copiar código
+            // COPY CODE
             const copyBtn = document.getElementById("copy-code-btn");
+
             if (copyBtn) {
                 copyBtn.addEventListener("click", async () => {
+
                     try {
-                        await navigator.clipboard.writeText(gameCode);
-                        copyBtn.innerHTML = '<i class="bi bi-check-lg"></i>';
-                        setTimeout(() => { copyBtn.innerHTML = '<i class="bi bi-clipboard"></i>'; }, 1500);
-                    } catch (e) { console.error("Error copying code", e); }
+                        await navigator.clipboard.writeText(
+                            document.getElementById("game-code").textContent
+                        );
+
+                        copyBtn.innerHTML =
+                            '<i class="bi bi-check-lg"></i>';
+
+                        setTimeout(() => {
+                            copyBtn.innerHTML =
+                                '<i class="bi bi-clipboard"></i>';
+                        }, 1500);
+
+                    } catch (e) {
+                        console.error(e);
+                    }
                 });
             }
         });
-
-        function joinLobby() {
-            go(`${config.rootUrl}/game/${gameCode}/join`, "POST")
-                .then(data => {
-                    console.log(data);
-
-                    if (data.status === "full") {
-                        setStatus(data.message, "danger");
-                        document.getElementById("leave-btn").textContent = "Go back";
-                        return;
-                    }
-
-                    // Caso nuevo jugador
-                    renderPlayers(data.players);
-                    setStatus(`Welcome, ${data.username}! The lobby is ready.`, "success");
-                })
-                .catch(err => {
-                    console.error("Error joining lobby:", err);
-                    loadPlayers();
-                    setStatus("Connected (limited mode)", "warning");
-                });
-        }
-
-        function loadPlayers() {
-            go(`${config.rootUrl}/game/${gameCode}/players`, "GET")
-                .then(data => renderPlayers(data.players))
-                .catch(e => console.error("Error loading players:", e));
-        }
-
-        function handleWsMessage(msg) {
-            console.log("Lobby WS message:", msg);
-
-            switch (msg.type) {
-                case "update":
-                    renderPlayers(msg.players);
-                    break;
-
-                case "game_start":
-                    setStatus("Game is about to start", "success");
-                    setTimeout(() => {
-                        window.location.href = msg.redirect || (config.rootUrl + "/game/multi_game/" + gameCode);
-                    }, 1000);
-                    break;
-
-                case "player_kicked":
-                    renderPlayers(msg.players);
-                    if (msg.kickedPlayer === currentUser) {
-                        setStatus("You've been kicked from the lobby by the host", "danger");
-                        setTimeout(() => window.location.href = config.rootUrl + "/", 2000);
-                    } else if (msg.kickedPlayer === "all") {
-                        setStatus(msg.message || "Host left the game", "danger");
-                        setTimeout(() => window.location.href = config.rootUrl + "/", 2000);
-                    } else {
-                        setStatus(`${msg.kickedPlayer} has been expelled from the lobby`, "warning");
-                    }
-                    break;
-            }
-        }
-
-        function kickPlayer(username) {
-            if (!confirm(`Are you sure you want to expel ${username}?`)) return;
-            go(`${config.rootUrl}/game/${gameCode}/kick/${encodeURIComponent(username)}`, "POST")
-                .then(d => { if (d.status === "error") setStatus("Error: " + d.message, "danger"); })
-                .catch(e => console.error("Error kicking player:", e));
-        }
-
-        function escapeHtml(str) {
-            const d = document.createElement("div");
-            d.textContent = str;
-            return d.innerHTML;
-        }
-
-        function renderPlayers(players) {
-            const list = document.getElementById("player-list");
-            const count = document.getElementById("player-count");
-            const startBtn = document.getElementById("start-btn");
-
-            count.textContent = players.length;
-
-            if (!players.length) {
-                list.innerHTML = `<li class="list-group-item text-muted fst-italic">Waiting for players...</li>`;
-                return;
-            }
-
-            list.innerHTML = players.map(player => {
-                const isMe = player.id === currentUserId;
-                const isHostPlayer = player.id === hostId;
-
-                let playerClasses = "", extraStyle = "";
-                if (isHostPlayer) {
-                    playerClasses = "border border-warning-subtle";
-                    extraStyle = "background: linear-gradient(90deg, rgba(255,248,220,0.95), rgba(255,255,255,1));";
-                } else if (isMe) {
-                    playerClasses = "border border-info-subtle";
-                    extraStyle = "background: linear-gradient(90deg, rgba(230,247,255,0.95), rgba(255,255,255,1));";
-                }
-
-                const hostIcon = isHostPlayer ? `<i class="bi bi-patch-check-fill text-warning me-2"></i>` : "";
-                const hostGlow = `style="${extraStyle} transition: all .2s ease;"`;
-
-                let actionBtn = "";
-                if (isHost && !isMe) {
-                    actionBtn = `<button class="btn btn-outline-danger btn-sm ms-2" onclick="kickPlayer('${escapeHtml(player.username)}')"><i class="bi bi-person-x"></i></button>`;
-                } else if (isMe) {
-                    actionBtn = `<button class="btn btn-outline-secondary btn-sm ms-2" id="leave-inline-btn"><i class="bi bi-box-arrow-right"></i></button>`;
-                }
-
-                return `
-<li class="list-group-item d-flex align-items-center justify-content-between ${playerClasses}" ${hostGlow}>
-    <div class="d-flex align-items-center">
-        <img src="${config.rootUrl}/user/${player.id}/pic" class="rounded-circle me-3 border" style="width:42px;height:42px;object-fit:cover;" alt="avatar">
-        <span class="${isHostPlayer ? 'fw-bold text-warning' : ''}">
-            ${hostIcon}${escapeHtml(player.username)}
-        </span>
-    </div>
-    <div>${actionBtn}</div>
-</li>`;
-            }).join("");
-
-            const leaveInlineBtn = document.getElementById("leave-inline-btn");
-            if (leaveInlineBtn) {
-                leaveInlineBtn.addEventListener("click", () => {
-                    go(`${config.rootUrl}/game/${gameCode}/leave`, "POST")
-                        .then(() => window.location.href = config.rootUrl + "/")
-                        .catch(() => window.location.href = config.rootUrl + "/");
-                });
-            }
-
-            if (startBtn) startBtn.disabled = players.length < 2;
-        }
-
-        let lobbyStatusTimeout = null;
-        function setStatus(text, type) {
-            const el = document.getElementById("lobby-status");
-            el.style.display = "block";
-            el.className = `alert alert-${type} mb-3`;
-            el.textContent = text;
-            if (lobbyStatusTimeout) clearTimeout(lobbyStatusTimeout);
-            lobbyStatusTimeout = setTimeout(() => { el.style.display = "none"; lobbyStatusTimeout = null; }, 3000);
-        }
     </script>
 </body>
 
