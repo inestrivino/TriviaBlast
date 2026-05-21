@@ -55,6 +55,14 @@
                                 </a>
                             </li>
 
+                            <!-- ENLACE EXCLUSIVO PARA ADMINISTRADORES -->
+                            <li class="nav-item mx-1"
+                                th:if="${session.u.roles != null and #strings.contains(session.u.roles, 'ADMIN')}">
+                                <a class="nav-link text-danger fw-bold" th:href="@{/admin/}" href="/admin/">
+                                    <i class="bi bi-shield-lock-fill me-1"></i>Admin
+                                </a>
+                            </li>
+
                         </th:block>
 
                         <!-- COMPONENTES DE LOGIN (Solo si NO hay sesión activa) -->
