@@ -260,6 +260,15 @@ public class GameController {
             return "redirect:/game/lobby/" + code;
         }
 
+        List<Map<String, String>> categories = game.getCategories()
+                .stream()
+                .map(c -> Map.of(
+                        "key", c.name(),
+                        "label", c.getLabel()))
+                .toList();
+
+        model.addAttribute("categories", categories);
+
         model.addAttribute("user", currentUser);
         model.addAttribute("game", game);
         session.setAttribute("topics", game.getCode());

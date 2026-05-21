@@ -12,6 +12,7 @@ window.GameClient = (() => {
         gameCode: null,
         currentUserId: 0,
         hostId: 0,
+        categories: null
     };
 
     // -------------------------------
@@ -20,6 +21,10 @@ window.GameClient = (() => {
     let wsClient = null;
     let lobbyTopic = null;
     let statusTimer = null;
+
+    let currentGameState = {
+        players: []
+    };
 
     // -------------------------------
     // INIT
@@ -133,7 +138,10 @@ window.GameClient = (() => {
     function loadPlayers() {
         return go(`/game/${cfg.gameCode}/players`, "GET")
             .then(data => {
-                if (data.players) renderPlayers(data.players);
+                if (data.players) currentGameState.players = data.players || [];
+                renderPlayers(currentGameState.players);
+                const isMatch = cfg.mode === "match";
+                if (isMatch) initBoard();
                 return data;
             });
     }
@@ -235,7 +243,7 @@ window.GameClient = (() => {
             </div>
 
         </li>`;
-        }).join("");    
+        }).join("");
         const startBtn = document.getElementById("start-btn");
 
         if (startBtn) {
@@ -318,63 +326,183 @@ window.GameClient = (() => {
     // -------------------------------
     // BOARD (GAME)
     // -------------------------------
+
     function initBoard() {
         const container = document.getElementById('tablero-container');
         if (!container || typeof SVG === "undefined") return;
 
         const draw = SVG().addTo('#tablero-container');
 
-        const filas = 8;
-        const columnas = 8;
+        // 1. PALETA DE COLORES FIJOS (Estilo Trivial Pursuit vibrante)
+        const CATEGORY_COLORS = [
+            '#E15759', // Rojo coral / Salmón oscuro
+            '#F28E2B', // Naranja suave
+            '#EDC948', // Amarillo mostaza claro (contrasta bien con blanco)
+            '#59A14F', // Verde hierba suave
+            '#4E79A7', // Azul clásico apagado
+            '#B07AA1', // Lavanda / Violeta elegante
+            '#FF9DA7', // Rosa pastel
+        ];
+
+        // 2. RECUPERAR CATEGORÍAS
+        const categories = cfg.categories || [];
+
+        const categoryColorMap = {};
+        categories.forEach((cat, idx) => {
+            const key = cat.name || cat.key || cat;
+            categoryColorMap[key] = CATEGORY_COLORS[idx % CATEGORY_COLORS.length];
+        });
+
+        function checkerPattern(group, size) {
+            const half = size / 2;
+            group.rect(half, half).move(0, 0).fill('#fff');
+            group.rect(half, half).move(half, 0).fill('#000');
+            group.rect(half, half).move(0, half).fill('#000');
+            group.rect(half, half).move(half, half).fill('#fff');
+        }
+
+        // 3. OBTENER LA CATEGORÍA CORRESPONDIENTE A LA CASILLA
+        function getCategoryForPosition(pos) {
+            if (!categories.length) return null;
+            // (pos - 1) hace que la casilla 1 use la primera categoría elegida, la 2 la segunda, etc.
+            return categories[(pos - 1) % categories.length];
+        }
+
+        // Dibujado síncrono de avatares (las imágenes ya están garantizadas en la caché del navegador)
+        function drawPlayers(cellGroup, pos, cellSize) {
+            const players = currentGameState.players || [];
+            const playersHere = players.filter(p => {
+                let boardPos = p.boardPosition;
+                if (boardPos < 1) boardPos = 0;
+                if (boardPos > 64) boardPos = 65;
+                return boardPos === pos;
+            });
+
+            const avatarSize = cellSize * 0.35;
+            const positions = [
+                { x: 0.15, y: 0.35 }, { x: 0.50, y: 0.35 },
+                { x: 0.15, y: 0.65 }, { x: 0.50, y: 0.65 }
+            ];
+
+            playersHere.slice(0, 4).forEach((p, idx) => {
+                const offset = positions[idx];
+                const ax = cellSize * offset.x;
+                const ay = cellSize * offset.y;
+
+                const clip = cellGroup.circle(avatarSize).move(ax, ay);
+
+                // Al estar precargada, se renderiza con sus dimensiones correctas inmediatamente
+                cellGroup.image(`/user/${p.id}/pic`)
+                    .move(ax, ay)
+                    .size(avatarSize, avatarSize)
+                    .clipWith(clip);
+
+                cellGroup.circle(avatarSize)
+                    .move(ax, ay)
+                    .fill('none')
+                    .stroke({ color: '#fff', width: 2 });
+            });
+        }
+
+        const cols = 9;
+        const rows = 8;
+
+        function getBoardCoords(pos) {
+            if (pos === 0) return { x: 0, y: 7 };
+            if (pos === 65) return { x: 8, y: 0 };
+
+            const adjPos = pos - 1;
+            const gridCols = 8;
+
+            const rowFromBottom = Math.floor(adjPos / gridCols);
+            let col = adjPos % gridCols;
+
+            if (rowFromBottom % 2 === 1) {
+                col = gridCols - 1 - col;
+            }
+
+            return { x: col + 1, y: 7 - rowFromBottom };
+        }
 
         function redraw() {
             draw.clear();
 
-            const size = Math.min(container.clientWidth, window.innerHeight * 0.7);
-            container.style.height = size + "px";
+            // Buscamos el elemento de texto en el HTML
+            const displayText = document.getElementById('categoria-display');
+            const defaultText = "Pasa el ratón por una casilla para ver su categoría";
 
-            const cell = size / filas;
+            const size = Math.max(600, Math.min(container.clientWidth, window.innerHeight * 0.85));
+            container.style.height = `${size}px`;
+            const cell = size / cols;
+            draw.viewbox(0, 0, size, cell * rows);
 
-            draw.viewbox(0, 0, size, size);
+            for (let i = 0; i <= 65; i++) {
+                const { x, y } = getBoardCoords(i);
+                const px = x * cell;
+                const py = y * cell;
 
-            let grid = Array.from({ length: filas }, () =>
-                Array(columnas).fill(false)
-            );
+                const group = draw.group().transform({ translate: [px, py] });
 
-            let x = 0, y = 0;
-            let dx = 1, dy = 0;
+                if (i === 0 || i === 65) {
+                    checkerPattern(group, cell);
+                    group.text(i === 0 ? "START" : "GOAL")
+                        .font({ size: cell / 4, anchor: 'middle', weight: 'bold' })
+                        .fill('#fff')
+                        .stroke({ color: '#000', width: 1, linejoin: 'round' })
+                        .center(cell / 2, cell / 2);
 
-            for (let i = 1; i <= filas * columnas; i++) {
+                    // Opcional: Mostrar START o GOAL en el h3 al pasar por encima
+                    if (displayText) {
+                        group.mouseover(() => {
+                            displayText.innerText = i === 0 ? "Casilla de Salida (START)" : "¡Meta! (GOAL)";
+                        });
+                        group.mouseleave(() => {
+                            displayText.innerText = defaultText;
+                        });
+                    }
+                } else {
+                    const category = getCategoryForPosition(i);
+                    const categoryKey = category ? (category.name || category.key || category) : null;
+                    const categoryLabel = category ? (category.label || categoryKey) : "Pregunta General";
+                    const fill = categoryKey ? categoryColorMap[categoryKey] : '#f2f2f2';
 
-                const isCorner =
-                    (dx !== 0 && dy !== 0);
+                    group.rect(cell - 2, cell - 2)
+                        .move(1, 1)
+                        .fill(fill)
+                        .stroke({ width: 1, color: '#999' })
+                        .radius(8);
 
-                draw.rect(cell - 2, cell - 2)
-                    .move(x * cell + 1, y * cell + 1)
-                    .fill('#f2f2f2')
-                    .stroke({ width: 1, color: '#999' });
+                    group.text(i.toString())
+                        .font({ size: cell / 5, anchor: 'middle', weight: 'bold' })
+                        .fill('#fff')
+                        .center(cell / 2, cell * 0.25);
 
-                draw.text(i.toString())
-                    .font({ size: cell / 3, anchor: 'middle' })
-                    .center(
-                        x * cell + cell / 2,
-                        y * cell + cell / 2
-                    );
+                    if (category) {
+                        group.attr('data-tooltip', categoryLabel);
+                    }
 
-                grid[y][x] = true;
+                    if (displayText) {
+                        // Cuando el cursor entra en los límites de este grupo
+                        group.mouseover(() => {
+                            displayText.innerText = `Casilla ${i}: ${categoryLabel}`;
+                            displayText.style.color = fill;
+                        });
 
-                if (dx === 1 && (x + dx >= columnas || grid[y][x + dx])) { dx = 0; dy = 1; }
-                else if (dy === 1 && (y + dy >= filas || grid[y + dy][x])) { dx = -1; dy = 0; }
-                else if (dx === -1 && (x + dx < 0 || grid[y][x + dx])) { dx = 0; dy = -1; }
-                else if (dy === -1 && (y + dy < 0 || grid[y + dy][x])) { dx = 1; dy = 0; }
-
-                x += dx;
-                y += dy;
+                        // Cuando el cursor sale del grupo, restauramos el texto y el color original
+                        group.mouseleave(() => {
+                            displayText.innerText = defaultText;
+                            displayText.style.color = '#333';
+                        });
+                    }
+                }
+                drawPlayers(group, i, cell);
             }
         }
 
         redraw();
-        window.addEventListener("resize", redraw);
+        // Registramos el evento resize de forma limpia
+        window.addEventListener('resize', redraw);
+
     }
 
     // -------------------------------
