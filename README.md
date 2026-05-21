@@ -1,79 +1,107 @@
-# TriviaBlast
+# <img src="./src/main/resources/static/img/favicon.png" width="40" height="40" align="center"> TriviaBlast
 
-**Juego de preguntas y respuestas en línea** para jugar de forma individual o en salas multijugador (hasta 8 jugadores).
+**Plataforma de preguntas y respuestas en línea** para competir de forma individual o en salas multijugador.
 
-## Propuesta
+---
 
-### Descripción
+## 1. Propuesta del Sistema
 
-TriviaBlast es un juego interactivo que permite a los usuarios practicar y ganar puntos en partidas individuales, o competir en un tablero clásico con categorías por colores en salas privadas. Las preguntas se obtienen de la [Open Trivia Database (OpenTDB)](https://opentdb.com/), ofreciendo una amplia variedad de categorías y niveles de dificultad.
+### Descripción General
 
-### Roles y permisos
+TriviaBlast es un juego interactivo web diseñado para ofrecer entretenimiento.
+Permite a los usuarios entrenar y acumular puntuación en partidas individuales, o competir en tiempo real con tablero clásico en salas privadas.
+Todas las preguntas se consumen en tiempo real de la API externa [Open Trivia Database (OpenTDB)](https://opentdb.com/), permitiendo una alta diversidad de preguntas posibles que recibir.
 
-| Rol           | Permisos                                                                 |
-|---------------|--------------------------------------------------------------------------|
-| **Jugador**   | Gestionar cuenta, jugar partidas individuales/multijugador, ver leaderboard. |
-| **Administrador** | Ocultar, editar, borrar o restaurar visibilidad de usuarios. |
+### Dependencias y librerías
 
-### Modalidades de juego
+El proyecto hace uso de Bootstrap, Springboot, Maven, Thymeleaf, para crear una página dinámica con garantías de seguridad y funcionalidades básicas . También se usó la librería `svg.js` para el renderizado del taberlo de juego.
 
-#### Partida individual
+En ciertas partes de la página se puede apreciar el uso de tecnologías AJAX y Websockets, en específico durante la partida multijugador.
 
-- Configuración personalizada: número de preguntas, categoría y dificultad.
-- Límite de tiempo por pregunta.
-- Puntuación basada en dificultad y rapidez al responder.
+### Otros detalles
 
-#### Partida multijugador
+La mayor parte del js del lado del cliente de la aplicación se puede encontrar en el archivo `TriviaBlast.js`, salvo lo referido a el lobby y la partida multijugador, que debido a su extensión y complejidad se encuentra en el archivo `gameClient.js`.
+Por lo demás, el proyecto sigue la estructura que se esperaría.
 
-- Sala privada con código de invitación.
-- Tablero por turnos, con categorías por colores.
-- Gana el primer jugador que complete correctamente todas las categorías.
+### Roles y Sistema de Permisos
 
-### Sistema de puntos y leaderboard
+| Rol | Permisos y Funcionalidades Operativas |
+| :--- | :--- |
+| **Jugador** | Registro e inicio de sesión, gestión avanzada del perfil propio, participación en modalidades singleplayer y multiplayer, visualización de clasificaciones (Leaderboard) y capacidad de reportar usuarios por comportamiento indebido. |
+| **Administrador** | Auditoría del sistema a través de alertas en tiempo real, capacidad de moderación, borrado lógico de cuentas, e inhabilitación total de usuarios (ocultación de clasificaciones y bloqueo de login). |
 
-- Los puntos se obtienen según el tipo de partida y se reflejan en el leaderboard (solo visible para usuarios registrados).
-- Los jugadores aparecen ordenados de mayor a menor puntuación.
-- Los administradores pueden ocultar jugadores del leaderboard.
 
-### Flujo de juego resumido
+## 2. Mecánicas de Juego Detalladas
 
-1. Registro o inicio de sesión.
-2. Selección de modalidad de juego.
-3. Desarrollo de la partida.
-4. Cálculo de puntos y actualización del leaderboard.
+### 2.1 Modalidad Individual (Singleplayer)
 
-## Estructura de la BD
+* **Configuración Avanzada:** El usuario puede parametrizar al completo su experiencia seleccionando el número de preguntas, la categoría temática y el nivel de dificultad.
+* **Modo Invitado:** La plataforma permite a usuarios anónimos o no registrados iniciar partidas en modo individual para fomentar el juego casual. No obstante, de forma evidente, **estos usuarios no acumularán puntos a largo plazo** ni guardarán registros históricos en el Scoreboard global.
+* * *Seguridad Anti-Trampas:* **La validación de las preguntas se realiza íntegramente en el backend.** El frontend nunca recibe la respuesta correcta antes de tiempo para evitar vulnerabilidades por inspección de código. Se puede auditar ingresando `window.questions` en la consola del navegador; el vector de respuestas vendrá enmascarado. Cada acierto asigna 10 puntos básicos y al fallar se le revela visualmente al usuario cuál era la respuesta correcta. Esto se aplica también a la partida multijugador.
+
+### 2.2 Modalidad Multijugador
+
+El modo multijugador se ha creado bajo estrictas reglas de sincronización para asegurar la equidad y consistencia de las partidas:
+
+* **Gestión del Lobby:** Las salas privadas se configuran mediante un código de invitación único. Por motivos de rendimiento, optimización web y simplicidad logística, el lobby tiene un **máximo permitido de 4 jugadores**. Además, se optó por usar un método propio que solo crease códigos alfanuméricos (números y letras) para evitar problemas en casos en los que el código generado incluía otros símbolos (como un guión).
+* **Identidad Visual en el Lobby:** Para facilitar la jerarquía visual, dentro del lobby el **Host (anfitrión) se resalta en color dorado**, mientras que el **usuario propio se renderiza en azul**.
+* **Políticas de Desconexión y Cierre:** * Cualquier jugador puede abandonar libremente el lobby o ser expulsado por el anfitrión.
+    * Si el Host decide salir del lobby, **se elimina automáticamente toda la partida**, disolviendo la sala.
+    * Durante el juego en sí, **basta con que quede un solo usuario (el Host) para que la partida se cancele y elimine**, debido a que a esas alturas del flujo ya no se pueden unir nuevos contrincantes y una mecánica multijugador no puede ser disputada por un único participante.
+* **Tablero de Juego:** Sistema competitivo por turnos sobre un tablero clásico con categorías representadas por colores. Gana el primer jugador en llegar al final del tablero.
+* **Sistema de Incentivos:** Al finalizar el encuentro, los **3 primeros jugadores de la clasificación de la sala ganan un bonus extraordinario de puntos** directo a su balance de cuenta global.
+
+## 3. Mensajería, Moderación y Seguridad
+
+### 3.1 Chat en Vivo
+
+Durante el transcurso de una partida multijugador, los usuarios disponen de un chat síncrono. Los mensajes enviados son recibidos por todos los participantes y muestran de forma explícita **la hora exacta de emisión y el usuario remitente**.
+
+### 3.2 Canal de Alertas de Administración
+
+La aplicación incorpora dos flujos reactivos de moderación instantánea para proteger la experiencia de la comunidad:
+
+1.  **Comando de Emergencia (`@admin`):** Si un jugador inicia un mensaje en el chat con la cadena de texto `@admin`, **este mensaje no se muestra en la pantalla del chat común**. En su lugar, el sistema lo intercepta en el backend y despacha automáticamente una alerta privada directa a los administradores.
+2.  **Denuncias desde el Scoreboard:** Cualquier usuario puede emitir un reporte contra perfiles específicos desde la propia tabla de clasificación (Scoreboard), lo cual genera una alerta en la consola/panel de gestión de los administradores.
+
+### 3.3 Protocolo de Inhabilitación
+
+Al procesar una alerta, los administradores tienen el poder de aplicar la acción de **"Esconder"** a un usuario infractor (lo que conmuta su estado en base de datos a `disabled`). Al ejecutarse:
+* El usuario **deja de aparecer en el Scoreboard público para los usuarios generales**.
+* Se revoca su token y permiso de acceso, **imposibilitando que vuelva a iniciar sesión** en la plataforma de manera indefinida.
+
+## 4. Estructura de la Base de Datos
+
 
 ![Database Schema](DatabaseSchema.png)
 
-## Estado de la implementación
+## 5. Sobre la implementación
 
-### Terminada
+### Otras funcionalidades
 
-- **Sign in or up**: La implementación del registro de una cuenta o del inicio de sesión está correctamente implementada, se manejan casos de error (como cuando se insertan dos contraseñas distintas al crear una cuenta). Al crear cuenta se inicia la sesión automáticamente.
-- **Inicio**: Implementado correctamente. Dispone de un botón para unirse a una partida multijugador mediante un código cuando no se ha iniciado sesión. Una vez iniciada la sesión, se pueden ver también los botones para crear una partida multijugador o empezar una partida de un solo jugador. Actualmente solo este último hace algo.
-- **Partida individual**: Dispone de dos vistas. La primera, referida a la creación de la partida con sus ajustes, está completamente implementada. Los tipos de preguntas se corresponden a los de la API usada. La partida de un solo jugador en sí también se encuentra completamente implementada. Se muestran las preguntas y posibles respuestas. Al fallar una pregunta se muestra cual hubiese sido la correcta. Cabe mencionar que la validación de las preguntas se realiza completamente en el backend, por lo que se imposibilita el hacer trampas (para comprobar que el frontend nunca recibe las respuestas correctas, inicie una partida individual, abra la consola del navegador e introduzca `window.questions`). Hay un botón para abandonar la partida, y se muestra en qué número de pregunta y cantidad de puntos se han acumulado por el momento. Al acertar una pregunta el usuario recibe 10 puntos.
-- **Perfil de usuario**: Muestra la foto de perfil, nombre, y cantidad de puntos del usuario. También le permite cerrar la sesión o borrar completamente su cuenta. El botón `edit`, le permite cambiar su foto de perfil, su nombre y correo, o su contraseña (acción que se deberá validar con la contraseña anterior). En el futuro, cuando se disponga de la funcionalidad de las partidas multijugador, podremos mostrarlas en el perfil del usuario (como retrospectiva).
-- **Scoreboard**: Muestra los usuarios registrados junto con sus puntos. Si un administrador decide esconder a un usuario, su estatus de visibilidad se actualiza en la base de datos, y pasa a no aparecer en la tabla para usuarios normales.
+* **Sign in & Sign up:** Registro e inicio de sesión completamente funcionales. Gestión exhaustiva de excepciones (como la detección de contraseñas no coincidentes al crear una cuenta). El sistema inicia la sesión de forma automatizada inmediatamente después de un registro correcto.
+* **Pantalla de Inicio:** Si el usuario no está autenticado, presenta el acceso rápido a una partida singleplayer. Una vez logueado, inyecta los paneles para crear partidas multijugador o unirse a otras.
+* **Perfil de Usuario:** Visualización de avatar, estadísticas de puntos y datos personales. Permite el cierre de sesión, la edición avanzada de perfil (con verificación previa de la contraseña antigua) y el borrado físico completo de la cuenta.
+* **Scoreboard (Tablero global):** Listado síncrono de los usuarios registrados ordenados de mayor a menor puntuación. Implementa los filtros de control de administración, discriminando los perfiles marcados como invisibles (`disabled`).
+* **Interacciones AJAX:** Actualización de datos asíncrona sin recarga de página completamente integrada en la vista del Scoreboard y multijugador.
+* **Despliegue:** Configuración de entorno y despliegue completado con éxito en el docker proporcionado para el proyecto, gracias al script `deploy.py`.
 
-### En progreso
+### Usuarios de Prueba 
 
-- **Partida multijugador**: Solo está implementada la vista estática. Para configurar la partida podemos reciclar la funcionalidad otorgada por la configuración de la partida individual, sin embargo faltaría implementar:
-  1. La capacidad de conectar jugadores al juego (generación y funcionalidad de código para sala activa)
-  2. La lógica del juego
-  3. La capacidad de enviar mensajes a la partida o a los admins
-  4. La recepción de puntos al finalizar la partida
-- **Barra de navegación**: Actualmente responde a una estructura deseada para el debugging de la aplicación y la visualización de las vistas que siguen siendo estáticas. Sin embargo, en el futuro tendrá una estructura más común para una aplicación online práctica (casa, perfil/login), mientras que las vistas referidas al juego serán accesibles desde los botones correspondientes en la "casa".
+Para facilitar las tareas de evaluación al arrancar la aplicación, la base de datos se inicializa automáticamente con dos perfiles de prueba:
 
-### Usuarios en la BD
-- Al inicializar la aplicación, se encontrarán dos usuarios en la base de datos con los que se puede inicializar la sesión gracias a los botones en la barra de navegación: a (el cual es un admin) y b (usuario normal).
+* **Usuario `a`:** Cuenta con rol de **Administrador**.
+* **Usuario `b`:** Cuenta con rol de **Jugador** normal.
 
-### Recursos externos e IA
-- Se ha usado IA para la comprobación, limpieza o desarrollo de ciertas partes del código. Por ejemplo, se ha usado IA para limpiar el client.js y para desarrollar la versión actual del tablero del modo multijugador (debido a desconocimiento de la librería svg.js). En la entrega final se proporcionará una lista más en detalle sobre dónde se hizo uso de IA y para qué. 
-- Se pretende usar un código externo como referencia para la implementación del dado en el juego multijugador (se especificará en la entrega final).
+### Recursos Externos y Uso de IA
 
-### Otras cosas
+* Se contempla la integración de componentes externos de referencia para animar la física del dado en el modo multijugador.
+* Se ha hecho uso de IA a lo largo del desarrollo del proyecto sobretodo para tareas de refactorización del código, para conseguir un diseño de la interfaz agradable e intuitiva, para debuggear, y para escribir secciones del código, en específico aquellas que hiciesen uso de librerías externas poco conocidas, como la renderización del tablero.
+* No se ha hecho uso de código (humano) de internet o libros para referencias. Se consideró para conseguir el efecto dado con animación en frontend pero finalmente se optó por no introducrilo dadas las limitaciones en tiempo. Sí que se usó de referencia el material académico de la clase, incluída la plantilla de código proporcionada.
 
-- Actualización de pantallas mediante AJAX (en scoreboard y la partida multijugador)
-- El despliegue de la aplicación en máquina virtual funciona correctamente.
-- Actualmente, la aplicación no dispone de pruebas, aunque se realizarán.
+## 6. Trabajo Futuro 
+
+1.  **Optimización Responsiva Completa:** Rediseñar los contenedores y layouts del entorno multijugador (especialmente el tablero), dado que la versión actual presenta problemas de escalado y solapamiento de componentes en pantallas pequeñas o dispositivos móviles.
+2.  **Unificación de la Lógica de Preguntas:** Refactorizar el motor core de peticiones a OpenTDB para unificar la captura, almacenamiento temporal y procesado de preguntas entre los módulos individual y multijugador, reduciendo código duplicado y deuda técnica.
+3.  **Módulo de historial de Partidas:** Desarrollar una pestaña adicional de "Histórico" en el perfil de usuario que consulte de manera retrospectiva los datos de partidas pasadas (fechas, puestos, rivales y estadísticas), aportando mayor valor al progreso del jugador.
+4. **Optimizar el uso de la API externa:** La API elegida para la toma de preguntas, tiene limitaciones en tiempo y cantidad de preguntas posibles a recibir, lo cual puede provocar problemas durante la partida multijugador. Se ha elegido manejar estos casos tal que "la ronda pasa al siguiente", pero a largo plazo lo ideal sería tener un timer, como por ejemplo una animación de 5 segundos para el lanzamiento del dado.
