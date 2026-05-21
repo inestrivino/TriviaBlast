@@ -25,14 +25,12 @@ import jakarta.persistence.TypedQuery;
 import jakarta.servlet.http.HttpSession;
 import jakarta.transaction.Transactional;
 
-
 /**
 * CONTROLLER DE ADMINISTRACIÓN 
 
 * Solo accesible para usuarios con rol ADMIN (configurado en SecurityConfig)
 * Ruta base: /admin/**
 */
-
 
 /**
  * Site administration.
@@ -61,18 +59,28 @@ public class AdminController {
   // Lista todos los usuarios de la BD y renderiza admin.html
   @GetMapping("/")
   public String index(Model model) {
-    log.info("Admin acaba de entrar");
-    model.addAttribute("users",
-        entityManager.createQuery("select u from User u").getResultList());
+    // 1. Traer los usuarios
+    List<User> users = entityManager.createQuery(
+        "SELECT u FROM User u ORDER BY u.totalPoints DESC", User.class).getResultList();
+    model.addAttribute("users", users);
+
+    // 2. RECUPERAR LAS ALERTAS DE MODERACIÓN EXCLUSIVAS
+    List<Message> alertasModeracion = entityManager.createQuery(
+        "SELECT m FROM Message m WHERE m.adminOnly = true ORDER BY m.dateSent DESC", Message.class)
+        .setMaxResults(10) // Limitamos a las 10 más recientes
+        .getResultList();
+
+    model.addAttribute("alertas", alertasModeracion);
+
     return "admin";
   }
 
   /*
-  * Cambia el campo enabled del usuario (true/false)
-  * Un usuario oculto no aparece en el scoreboard para otros usuarios
-  * Devuelve JSON con el nuevo estado. Llamado desde triviablast.js
-  * mediante fetch() (sin recargar la página)
-  */
+   * Cambia el campo enabled del usuario (true/false)
+   * Un usuario oculto no aparece en el scoreboard para otros usuarios
+   * Devuelve JSON con el nuevo estado. Llamado desde triviablast.js
+   * mediante fetch() (sin recargar la página)
+   */
   @PostMapping("/toggleView/{userId}")
   @Transactional
   @ResponseBody
@@ -103,7 +111,7 @@ public class AdminController {
   /**
    * Returns JSON with all received messages
    */
-  // Devuelve los últimos 5 mensajes del sistema como JSON 
+  // Devuelve los últimos 5 mensajes del sistema como JSON
   @GetMapping(path = "all-messages", produces = "application/json")
   @Transactional // para no recibir resultados inconsistentes
   @ResponseBody // para indicar que no devuelve vista, sino un objeto (jsonizado)

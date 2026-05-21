@@ -1,9 +1,3 @@
-<!--
-    Panel de administración: tabla de usuarios con botones
-    de toggle de visibilidad
-    triviablast.js gestiona el toggle sin recargar la página
--->
-
 <!DOCTYPE html>
 <html class="h-100" xmlns:th="http://www.thymeleaf.org">
 
@@ -12,6 +6,27 @@
     <title>IW: Admin</title>
     <link rel="stylesheet" th:href="@{/css/simple-datatables-10.css}" href="/css/simple-datatables-10.css"
         type="text/css" />
+    <style>
+        .badge-alert {
+            background-color: #dc3545;
+            color: white;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.02);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+    </style>
 </head>
 
 <body class="d-flex flex-column h-100">
@@ -21,106 +36,96 @@
         <div class="container">
             <h1 class="mt-5">Administración</h1>
         </div>
-        <div class="container">
-            <h1 class="mt-5">Usuarios</h1>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Id</th>
-                        <th>Username</th>
-                        <th>Email</th>
-                        <th>Roles</th>
-                        <th>Puntos</th>
-                        <th>Visibilidad</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr th:each="user : ${users}">
-                        <td th:text="${user.id}">1</td>
+        <div class="container mt-4">
+            <h2>Usuarios</h2>
+            <div class="table-responsive">
+                <table class="table table-striped align-middle">
+                    <thead>
+                        <tr>
+                            <th>Id</th>
+                            <th>Username</th>
+                            <th>Email</th>
+                            <th>Roles</th>
+                            <th>Puntos</th>
+                            <th>Estado Actual</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="user : ${users}" th:classappend="${!user.enabled} ? 'opacity-50'">
+                            <td th:text="${user.id}">1</td>
+                            <td th:text="${user.username}">paco</td>
+                            <td th:text="${user.email}">email@test.com</td>
+                            <td th:text="${user.roles}">USER</td>
+                            <td th:text="${user.totalPoints}">0</td>
 
-                        <td th:text="${user.username}">paco</td>
+                            <!-- Estado visual dinámico -->
+                            <td class="status-text fw-bold" th:text="${user.enabled} ? 'Visible' : 'Oculto'"
+                                th:classappend="${user.enabled} ? 'text-success' : 'text-danger'">
+                                Visible
+                            </td>
 
-                        <td th:text="${user.email}">email@test.com</td>
-
-                        <td th:text="${user.roles}">USER</td>
-
-                        <td th:text="${user.totalPoints}">0</td>
-
-                        <td>
-                            <form th:action="@{/admin/toggle/{id}(id=${user.id})}" method="post">
-                                <button th:if="${user.enabled}" type="submit"
-                                    class="toggle btn btn-danger">Deshabilitar</button>
-                                <button th:unless="${user.enabled}" type="submit"
-                                    class="toggle btn btn-primary">Habilitar</button>
-                            </form>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+                            <td>
+                                <button type="button" class="btn btn-sm toggle-btn"
+                                    th:classappend="${user.enabled} ? 'btn-outline-danger' : 'btn-success'"
+                                    th:text="${user.enabled} ? 'Hide' : 'Display'" th:attr="data-id=${user.id}">
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
 
-        <div class="container">
+        <!-- CENTRO DE CONTROL DE ALERTAS WEBSOCKET (@admin) -->
+        <div class="container mt-5">
+            <div class="card border-danger shadow-sm mb-4">
+                <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-shield-fill-exclamation me-2"></i>Centro de Control: Alertas de
+                        Moderación (@admin / Reportes)</h5>
+                    <span id="alert-counter" class="badge rounded-pill bg-white text-danger">0 nuevas</span>
+                </div>
+                <div class="card-body p-0">
+                    <div id="live-alerts-panel" class="list-group list-group-flush"
+                        style="max-height: 300px; overflow-y: auto;">
 
-            <h2>Últimos 5 mensajes del sistema</h2>
-            <table id="messages"></table> <!-- will be filled with JSON data-->
+                        <!-- Mensaje por defecto: SOLO se muestra si la lista de alertas viene vacía de la BD -->
+                        <div id="no-alerts-msg" class="list-group-item text-center text-muted py-4"
+                            th:if="${#lists.isEmpty(alertas)}">
+                            <i class="bi bi-check-circle-fill text-success fs-4 d-block mb-2"></i>
+                            No hay alertas de moderación pendientes de revisar en este momento.
+                        </div>
+
+                        <!-- Bucle para pintar las alertas almacenadas en la base de datos al recargar -->
+                        <div th:each="alerta : ${alertas}"
+                            class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="badge bg-danger me-2">Denuncia</span>
+                                <span th:text="${alerta.text}">El usuario X reportó a Y...</span>
+                            </div>
+                            <!-- Si tienes la fecha formateada en un transfer o un método, úsala, si no, pinta dateSent -->
+                            <small class="text-muted"
+                                th:text="${#temporals.format(alerta.dateSent, 'HH:mm')}">14:32</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="container mt-4 mb-5">
+            <h2>Últimos 5 mensajes generales del sistema</h2>
+            <div class="mb-2">
+                <table id="messages" class="table table-bordered"></table>
+            </div>
             <button id="refresh" class="btn btn-primary">Actualizar vía AJAX</button>
-
         </div>
-
     </main>
-
-    <th:block th:replace="~{fragments/footer.html :: footer}" />
     <script>
-        const toggles = document.querySelectorAll('.toggle');
-        toggles.forEach(toggle => {
-            toggle.addEventListener('click', (e) => {
-                e.preventDefault();
-                const form = e.target.parentElement;
-                go(form.action, 'POST').then((d) => {
-                    if (d.enabled) {
-                        e.target.classList.remove('btn-primary');
-                        e.target.classList.add('btn-danger');
-                        e.target.textContent = 'Deshabilitar';
-                    } else {
-                        e.target.classList.remove('btn-danger');
-                        e.target.classList.add('btn-primary');
-                        e.target.textContent = 'Habilitar';
-                    }
-                    console.log(d);
-                });
-            });
+        document.addEventListener("DOMContentLoaded", () => {
+            initAdminWebSocketAlerts();
         });
-
-
     </script>
-
-    <script type="module">
-        import { DataTable } from "../js/simple-datatables-10.js"
-        let dt = null;
-        function refreshMessages() {
-            go('/admin/all-messages', 'GET').then((d) => {
-                if (dt) {
-                    dt.destroy();
-                    document.querySelector("#messages").innerHTML = '';
-                }
-                dt = new DataTable('#messages', {
-                    data: {
-                        headings: ['from', 'to', 'text'],
-                        data: d
-                    },
-                    searchable: true,
-                    paging: false
-                });
-                dt.on("datatable.selectrow", (rowIndex, event, focused) => {
-                    event.preventDefault();
-                    console.log("click en fila: ", dataTable.data[rowIndex]);
-                });
-            });
-        }
-        document.getElementById('refresh').addEventListener('click', refreshMessages);
-        refreshMessages();
-    </script>
+    <th:block th:replace="~{fragments/footer.html :: footer}" />
 </body>
 
 </html>

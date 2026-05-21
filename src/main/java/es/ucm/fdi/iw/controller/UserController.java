@@ -46,6 +46,7 @@ import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -155,7 +156,7 @@ public class UserController {
       return "redirect:/login";
     }
 
-    // Le pasamos a Thymeleaf el usuario recién sacado de la BD 
+    // Le pasamos a Thymeleaf el usuario recién sacado de la BD
     model.addAttribute("user", freshUser);
     return "profile";
   }
@@ -706,35 +707,66 @@ public class UserController {
    */
   @GetMapping("/scoreboard")
   public String scoreboard(Model model) {
-    Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-    boolean isAdmin = auth.getAuthorities().stream()
-        .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
-
-    List<User> users;
-
-    if (isAdmin) {
-      users = entityManager.createQuery(
-          "SELECT u FROM User u ORDER BY u.totalPoints DESC", User.class)
-          .getResultList();
-    } else {
-      users = entityManager.createQuery(
-          "SELECT u FROM User u WHERE u.enabled = TRUE ORDER BY u.totalPoints DESC", User.class)
-          .getResultList();
-    }
+    // Traemos los usuarios ordenados por puntos de la Base de Datos directamente
+    List<User> users = entityManager.createQuery(
+        "SELECT u FROM User u ORDER BY u.totalPoints DESC", User.class)
+        .getResultList();
 
     model.addAttribute("users", users);
     return "scoreboard";
   }
 
-  // genera códigos de partida solo con caracteres alfanuméricos
-  public static String generateGameCode(int length) {
-    final String CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    SecureRandom secureRandom = new SecureRandom();
-    StringBuilder sb = new StringBuilder(length);
-    for (int i = 0; i < length; i++) {
-      sb.append(CHARS.charAt(secureRandom.nextInt(CHARS.length())));
-    }
-    return sb.toString();
-  }
+  @PostMapping("/report/{id}")
+  @ResponseBody
+  @Transactional
+  public Map<String, Object> reportUser(@PathVariable long id, Authentication authentication)
+      throws JsonProcessingException {
 
+    if (authentication == null || !authentication.isAuthenticated()) {
+      return Map.of("status", "error", "message", "No autenticado");
+    }
+
+    String myUsername = authentication.getName();
+    User me = entityManager.createQuery("SELECT u FROM User u WHERE u.username = :username", User.class)
+        .setParameter("username", myUsername)
+        .getSingleResult();
+
+    User reportedUser = entityManager.find(User.class, id);
+    if (reportedUser == null) {
+      return Map.of("status", "error", "message", "Usuario no encontrado");
+    }
+
+    // Texto descriptivo
+    String textoMensaje = String.format("El usuario '%s' (ID: %d) ha reportado a '%s' (ID: %d).",
+        me.getUsername(), me.getId(), reportedUser.getUsername(), reportedUser.getId());
+
+    // 1. CREAR Y PERSISTIR EL MENSAJE
+    Message dbMessage = new Message();
+    dbMessage.setSender(me);
+    dbMessage.setText(textoMensaje);
+    dbMessage.setDateSent(java.time.LocalDateTime.now()); 
+    dbMessage.setAdminOnly(true);
+    dbMessage.setGame(null);
+
+    entityManager.persist(dbMessage);
+    entityManager.flush(); 
+
+    // 2. PREPARAR PAYLOAD WEBSOCKET
+    ObjectMapper mapper = new ObjectMapper();
+    String horaActual = java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
+
+    Map<String, Object> alertPayload = Map.of(
+        "from", "SISTEMA (Denuncia)",
+        "text", textoMensaje,
+        "sent", horaActual 
+    );
+
+    String jsonAlert = mapper.writeValueAsString(alertPayload);
+
+    // 3. ENVIAR AL CANAL
+    log.info("Despachando alerta de moderación a /topic/admin: {}", jsonAlert);
+    messagingTemplate.convertAndSend("/topic/admin", jsonAlert);
+
+    return Map.of("status", "success", "message", "Denuncia procesada y registrada en el sistema");
+  }
 }

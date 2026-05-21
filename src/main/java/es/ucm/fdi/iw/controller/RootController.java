@@ -35,9 +35,6 @@ import jakarta.servlet.http.HttpSession;
  */
 @Controller
 public class RootController {
-
-    private static final Logger log = LogManager.getLogger(RootController.class);
-
     @ModelAttribute
     public void populateModel(HttpSession session, Model model) {
         for (String name : new String[] { "u", "url", "ws", "topics" }) {

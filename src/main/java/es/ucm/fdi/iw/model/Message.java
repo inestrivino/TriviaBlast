@@ -63,7 +63,7 @@ public class Message implements Transferable<Message.Transfer> {
 	private User sender;
 
 	// partida a la que pertenece el mensaje (ManyToOne → Game)
-	@ManyToOne(optional = false)
+	@ManyToOne
 	@JoinColumn(name = "game_id") // obligatorio
 	private Game game; // this serves as the "topic" of the message, i.e. the room where it was sent
 

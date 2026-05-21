@@ -1,5 +1,6 @@
 package es.ucm.fdi.iw.controller;
 
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -197,7 +198,7 @@ public class GameController {
                         .map(TriviaCategory::fromId)
                         .collect(Collectors.toSet());
         game.setCategories(cats);
-        game.setCode(UserController.generateGameCode(6));
+        game.setCode(generateGameCode(6));
         game.setDifficulty(difficulty);
         game.setGameState("WAITING");
         game.setHost(u);
@@ -1185,7 +1186,7 @@ public class GameController {
 
     /*
      * ==============
-     * CHAT TO DO: MOVER A OTRO CONTROLLER?
+     * CHAT
      * ================
      */
 
@@ -1226,22 +1227,54 @@ public class GameController {
                 .setParameter("code", code)
                 .getSingleResult();
 
-        // falta : ¿es u miembro de g?
-
-        // construye mensaje, lo guarda en BD
+        // 1. Crear la entidad del mensaje
         Message m = new Message();
         m.setSender(u);
         m.setGame(g);
         m.setDateSent(LocalDateTime.now());
+
+        ObjectMapper mapper = new ObjectMapper();
+
+        // 2. Interceptamos si es una alerta para administradores
+        if (text.trim().startsWith("@admin")) {
+            // Quitamos la etiqueta "@admin" del inicio para limpiar el texto de la alerta
+            String cleanText = text.replaceFirst("(?i)^@admin\\s*", "").trim();
+
+            m.setText("[ALERTA JUEGO " + code + "] " + cleanText);
+            m.setAdminOnly(true);
+            entityManager.persist(m);
+            entityManager.flush();
+
+            String jsonAlert = mapper.writeValueAsString(m.toTransfer());
+            log.info("Alerta de moderación enviada por {} en la partida {}: {}", u.getUsername(), code, cleanText);
+
+            // Emitimos al canal privado global de administradores
+            messagingTemplate.convertAndSend("/topic/admin", jsonAlert);
+
+            return "{\"result\": \"admin alert sent.\"}";
+        }
+
+        // 3. Flujo normal si NO es un mensaje para el admin
         m.setText(text);
         m.setAdminOnly(false);
         entityManager.persist(m);
-        entityManager.flush(); // to get Id before commit
+        entityManager.flush();
 
-        ObjectMapper mapper = new ObjectMapper();
         String json = mapper.writeValueAsString(m.toTransfer());
         log.info("Sending a message to {} with contents '{}'", code, json);
         messagingTemplate.convertAndSend("/topic/" + code, json);
+
         return "{\"result\": \"message sent.\"}";
+    }
+
+    // genera códigos de partida solo con caracteres alfanuméricos
+    public static String generateGameCode(int length) {
+        final String CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        SecureRandom secureRandom = new SecureRandom();
+        StringBuilder sb = new StringBuilder(length);
+        for (int i = 0; i < length; i++) {
+            sb.append(CHARS.charAt(secureRandom.nextInt(CHARS.length())));
+        }
+        return sb.toString();
     }
 }
