@@ -32,7 +32,7 @@
 	    <maven.compiler.target>${java.version}</maven.compiler.target>
 	    <maven.compiler.proc>full</maven.compiler.proc>
 	    <lombok.version>1.18.38</lombok.version>
-		<karate.version>1.4.1</karate.version>
+		<karate.version>1.5.0</karate.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -91,7 +91,7 @@
 
 		<!-- pruebas con Karate https://github.com/karatelabs/karate -->
 		<dependency>
-			<groupId>com.intuit.karate</groupId>
+			<groupId>io.karatelabs</groupId>
 			<artifactId>karate-junit5</artifactId>
 			<version>${karate.version}</version>
 			<scope>test</scope>
