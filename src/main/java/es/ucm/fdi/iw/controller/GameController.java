@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.HashMap;
@@ -290,42 +291,6 @@ public class GameController {
         return state;
     }
 
-    @PostMapping("/{code}/pause")
-    @ResponseBody
-    @Transactional
-    public Map<String, Object> togglePause(@PathVariable String code, HttpSession session) throws Exception {
-
-        User u = (User) session.getAttribute("u");
-        Game game = entityManager.createNamedQuery("Game.byCode", Game.class)
-                .setParameter("code", code)
-                .getSingleResult();
-
-        if (game == null)
-            return Map.of("error", "game not found");
-
-        if (game.getHost().getId() != (u.getId())) {
-            return Map.of("error", "only host");
-        }
-
-        ObjectMapper mapper = new ObjectMapper();
-        Map<String, Object> state = mapper.readValue(game.getGameState(), Map.class);
-
-        boolean paused = Boolean.TRUE.equals(state.get("PAUSED"));
-        state.put("PAUSED", !paused);
-
-        game.setGameState(!paused ? "PAUSED" : "STARTED");
-
-        entityManager.merge(game);
-
-        Map<String, Object> ws = new HashMap<>();
-        ws.put("type", "pause");
-        ws.put("paused", !paused);
-
-        messagingTemplate.convertAndSend("/topic/" + code, ws);
-
-        return Map.of("status", "ok", "paused", !paused);
-    }
-
     // Expulsa a un jugador de la partida y emite "player_kicked" por WebSocket
     @PostMapping("/{code}/kick/{userId}")
     @ResponseBody
@@ -546,36 +511,26 @@ public class GameController {
     }
 
     // Devuelve la lista actual de jugadores en la partida usando internalState
-    @GetMapping(path = "/{code}/players", produces = "application/json")
+    @GetMapping("/{code}/players")
     @ResponseBody
-    @Transactional
-    public Map<String, Object> getPlayers(@PathVariable String code) throws JsonProcessingException {
-
-        // Recuperar el juego
+    public Map<String, Object> getPlayersAndState(@PathVariable String code) throws JsonProcessingException {
         Game game = entityManager.createNamedQuery("Game.byCode", Game.class)
                 .setParameter("code", code)
                 .getSingleResult();
 
-        String internalState = game.getInternalState();
-        ObjectMapper objectMapper = new ObjectMapper();
-        Map<String, Object> state;
+        ObjectMapper mapper = new ObjectMapper();
+        // Parseamos el internalState completo de la base de datos
+        Map<String, Object> state = mapper.readValue(game.getInternalState(), new TypeReference<Map<String, Object>>() {
+        });
 
-        if (internalState == null || internalState.isBlank()) {
-            state = new HashMap<>();
-            state.put("players", new ArrayList<>());
-        } else {
-            // Parsear internalState JSON
-            state = objectMapper.readValue(internalState, new TypeReference<Map<String, Object>>() {
-            });
-            // Asegurarse de que la lista de jugadores exista
-            state.putIfAbsent("players", new ArrayList<>());
-        }
-
-        // Extraer la lista de jugadores
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> players = (List<Map<String, Object>>) state.get("players");
 
-        return Map.of("players", players);
+        // Devolvemos tanto la lista suelta (por compatibilidad) como el gameState
+        // completo
+        return Map.of(
+                "players", players != null ? players : List.of(),
+                "gameState", state);
     }
 
     /*
@@ -744,44 +699,164 @@ public class GameController {
 
     // Emite "game_start" por WebSocket
     // con la URL de redirección a la pantalla de juego
+    private final Random random = new Random();
+
     @PostMapping("/{code}/start")
     @ResponseBody
     @Transactional
-    public Map<String, Object> startGame(@PathVariable String code, HttpSession session) {
+    public Map<String, Object> startGame(@PathVariable String code, HttpSession session)
+            throws JsonProcessingException {
         User u = (User) session.getAttribute("u");
+        if (u == null)
+            return Map.of("status", "error", "message", "No autenticado");
 
         Game game = entityManager.createNamedQuery("Game.byCode", Game.class)
                 .setParameter("code", code)
                 .getSingleResult();
 
-        Long hostId = (Long) entityManager
-                .createQuery("SELECT g.host.id FROM Game g WHERE g.code = :code")
-                .setParameter("code", code)
-                .getSingleResult();
-
-        if (hostId == null || !hostId.equals(u.getId())) {
-            Map<String, Object> errorResp = new HashMap<>();
-            errorResp.put("status", "error");
-            errorResp.put("message", "Only the host can start the game");
-            return errorResp;
+        if (game.getHost().getId() != u.getId()) {
+            return Map.of("status", "error", "message", "Solo el host puede iniciar la partida");
         }
 
-        // marca la partida como iniciada en BD
+        if (!"WAITING".equalsIgnoreCase(game.getGameState())) {
+            return Map.of("status", "error", "message", "La partida ya ha comenzado");
+        }
+
         game.setGameState("STARTED");
 
-        Map<String, Object> wsMsg = new HashMap<>();
-        wsMsg.put("type", "game_start");
-        wsMsg.put("redirect", "/game/multi_game/" + code);
+        ObjectMapper mapper = new ObjectMapper();
+        Map<String, Object> state = mapper.readValue(game.getInternalState(), new TypeReference<Map<String, Object>>() {
+        });
 
-        try {
-            messagingTemplate.convertAndSend("/topic/" + code, wsMsg);
-        } catch (Exception e) {
-            log.error("Error broadcasting game start", e);
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> players = (List<Map<String, Object>>) state.get("players");
+
+        if (players == null || players.size() < 2) {
+            return Map.of("status", "error", "message", "Se necesitan al menos 2 jugadores");
         }
 
-        Map<String, Object> resp = new HashMap<>();
-        resp.put("status", "started");
-        return resp;
+        // 1. Crear el orden de turnos inicial
+        Map<String, Long> turnOrder = new LinkedHashMap<>();
+        int idx = 1;
+        for (Map<String, Object> p : players) {
+            turnOrder.put(String.valueOf(idx++), ((Number) p.get("id")).longValue());
+            p.put("boardPosition", 0);
+        }
+        state.put("turnOrder", turnOrder);
+
+        // 2. Definir el primer jugador (Turno 1)
+        Long firstPlayerId = turnOrder.get("1");
+        state.put("currentTurnPlayerId", firstPlayerId);
+
+        // Inicializar turnInfo. Apunta a la clave de orden "1"
+        Map<String, Object> turnInfo = new HashMap<>();
+        turnInfo.put("currentTurn", 1);
+        turnInfo.put("currentStreak", 1);
+        state.put("turnInfo", turnInfo);
+
+        game.setInternalState(mapper.writeValueAsString(state));
+        entityManager.merge(game);
+
+        // Notificar inicio de juego
+        messagingTemplate.convertAndSend("/topic/" + code, Map.of("type", "game_start"));
+
+        // Emitir un primer mensaje de "update" inmediato con el estado para que se
+        // inicialice el botón al redirigir
+        messagingTemplate.convertAndSend("/topic/" + code, Map.of(
+                "type", "update",
+                "players", players,
+                "gameState", state));
+
+        return Map.of("status", "success");
+    }
+
+    @PostMapping("/{code}/roll-dice")
+    @ResponseBody
+    @Transactional
+    public Map<String, Object> rollDice(@PathVariable String code, HttpSession session)
+            throws JsonProcessingException {
+
+        User u = (User) session.getAttribute("u");
+        if (u == null)
+            return Map.of("status", "error", "message", "No autenticado");
+
+        // 1. Recuperar juego
+        Game game;
+        try {
+            game = entityManager.createNamedQuery("Game.byCode", Game.class)
+                    .setParameter("code", code)
+                    .getSingleResult();
+        } catch (Exception e) {
+            return Map.of("status", "error", "message", "Partida no encontrada");
+        }
+
+        if (!"STARTED".equalsIgnoreCase(game.getGameState())) {
+            return Map.of("status", "error", "message", "La partida no está activa");
+        }
+
+        ObjectMapper mapper = new ObjectMapper();
+        Map<String, Object> state = mapper.readValue(game.getInternalState(), new TypeReference<Map<String, Object>>() {
+        });
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> players = (List<Map<String, Object>>) state.get("players");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> turnOrder = (Map<String, Object>) state.get("turnOrder");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> turnInfo = (Map<String, Object>) state.get("turnInfo");
+
+        // 2. Validación crítica de seguridad: ¿Es realmente el turno del usuario que
+        // invoca la ruta?
+        long currentTurnPlayerId = ((Number) state.get("currentTurnPlayerId")).longValue();
+        if (u.getId() != currentTurnPlayerId) {
+            return Map.of("status", "error", "message", "No es tu turno de lanzar el dado");
+        }
+
+        // 3. Tirar el dado (1 al 6)
+        int diceRoll = random.nextInt(6) + 1;
+        state.put("lastDiceRoll", diceRoll);
+
+        // 4. Mover al jugador en la lista
+        for (Map<String, Object> p : players) {
+            if (((Number) p.get("id")).longValue() == currentTurnPlayerId) {
+                int currentPos = ((Number) p.getOrDefault("boardPosition", 0)).intValue();
+                int newPos = currentPos + diceRoll;
+
+                if (newPos >= 65) {
+                    newPos = 65; // Casilla GOAL
+                    game.setGameState("FINISHED");
+                }
+                p.put("boardPosition", newPos);
+                break;
+            }
+        }
+
+        // 5. Calcular el próximo turno (solo si la partida no ha terminado)
+        if (!"FINISHED".equalsIgnoreCase(game.getGameState())) {
+            Number currentTurnIdxNum = (Number) turnInfo.get("currentTurn");
+            int nextTurnIdx = currentTurnIdxNum.intValue() + 1;
+
+            if (!turnOrder.containsKey(String.valueOf(nextTurnIdx))) {
+                nextTurnIdx = 1; // Volver al primer jugador del ciclo
+            }
+            turnInfo.put("currentTurn", nextTurnIdx);
+
+            // Actualizar el ID del jugador activo para la siguiente ronda
+            Object nextPlayerIdObj = turnOrder.get(String.valueOf(nextTurnIdx));
+            state.put("currentTurnPlayerId", ((Number) nextPlayerIdObj).longValue());
+        }
+
+        // 6. Guardar los cambios
+        game.setInternalState(mapper.writeValueAsString(state));
+        entityManager.merge(game);
+
+        // 7. Emitir actualización en tiempo real a todos los clientes enganchados
+        messagingTemplate.convertAndSend("/topic/" + code, Map.of(
+                "type", "update",
+                "players", players,
+                "gameState", state));
+
+        return Map.of("status", "success", "diceRoll", diceRoll);
     }
 
     /*

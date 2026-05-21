@@ -90,12 +90,6 @@
 
         <!-- LEFT PANEL (players + buttons) -->
         <div class="border-end p-3 d-flex flex-column h-100" style="width: 260px;">
-
-            <!-- BOTONES ARRIBA -->
-            <div class="d-flex gap-2 mb-3">
-                <button class="btn btn-warning btn-sm w-50">Pause</button>
-            </div>
-
             <!-- PLAYERS -->
             <h6>Players</h6>
 
@@ -109,6 +103,16 @@
         <!-- BOARD CENTER -->
         <div class="flex-grow-1 d-flex justify-content-center align-items-center">
             <div class="container-fluid d-flex flex-column justify-content-center min-vh-100 py-4">
+
+                <div class="text-center mt-3">
+                    <!-- El botón empieza oculto (d-none) por defecto; lo mostraremos solo a quien le toque -->
+                    <button id="btn-tirar-dado" class="btn btn-primary btn-lg fw-bold px-5 py-3 shadow d-none">
+                        🎲 ¡Tirar Dado!
+                    </button>
+
+                    <!-- Contenedor para ver el resultado de la última tirada -->
+                    <div id="dado-resultado" class="fs-4 fw-bold text-muted mt-2"></div>
+                </div>
 
                 <div class="d-flex flex-column align-items-center ms-5"
                     style="width: calc(100vw - 200px); max-width: 1200px;">

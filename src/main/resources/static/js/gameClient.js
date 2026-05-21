@@ -71,50 +71,57 @@ window.GameClient = (() => {
     }
 
     function handleWSMessage(msg) {
-        console.log("WS EVENT RECEIVED:", msg);
         if (!msg) return;
 
         switch (msg.type) {
             case "update":
-                console.log(msg.players);
-                if (msg.players) renderPlayers(msg.players);
-                break;
-
-            case "game_start":
-                setStatus("Game starting...", "success");
-                setTimeout(() => {
-                    window.location.href =
-                        `/game/multi_game/${cfg.gameCode}`;
-                }, 800);
-                break;
-            case "pause":
-                if (typeof onGamePaused === "function") onGamePaused(msg);
-                break;
-
-            case "resume":
-                if (typeof onGameResumed === "function") onGameResumed(msg);
-                break;
-            case "player_kicked":
                 if (msg.players) {
                     renderPlayers(msg.players);
                 }
+
+                // Sincronizamos el estado completo en la variable interna del módulo
+                if (msg.gameState) {
+                    currentGameState = msg.gameState;
+
+                    // Mostrar gráficamente el dado obtenido
+                    if (msg.gameState.lastDiceRoll) {
+                        console.log(`¡El jugador activo sacó un: ${msg.gameState.lastDiceRoll}!`);
+                        const dadoDiv = document.getElementById("dado-resultado");
+                        if (dadoDiv) {
+                            const dadosIconos = ["", "1", "2", "3", "4", "5", "6"];
+                            dadoDiv.innerText = `Última tirada: ${dadosIconos[msg.gameState.lastDiceRoll]}`;
+                        }
+                    }
+                } else if (msg.players) {
+                    currentGameState.players = msg.players;
+                }
+
+                initBoard();
+                actualizarVisibilidadDado();
+                break;
+            case "game_start":
+                if (typeof setStatus === "function") setStatus("Game starting...", "success");
+                setTimeout(() => {
+                    window.location.href = `/game/multi_game/${cfg.gameCode}`;
+                }, 800);
+                break;
+
+            case "player_kicked":
+                if (msg.players) {
+                    renderPlayers(msg.players);
+                    if (!window.currentGameState) window.currentGameState = {};
+                    window.currentGameState.players = msg.players;
+                }
                 if (msg.kickedPlayer === "all") {
-                    setStatus(msg.message || "Host left the game", "danger");
-
-                    setTimeout(() => {
-                        window.location.href = "/";
-                    }, 1500);
-
+                    if (typeof setStatus === "function") setStatus(msg.message || "Host left the game", "danger");
+                    setTimeout(() => { window.location.href = "/"; }, 1500);
                     break;
                 }
                 if (Number(msg.kickedPlayer) === Number(cfg.currentUserId)) {
-                    setStatus("You've been kicked", "danger");
-
-                    setTimeout(() => {
-                        window.location.href = "/";
-                    }, 1500);
+                    if (typeof setStatus === "function") setStatus("You've been kicked", "danger");
+                    setTimeout(() => { window.location.href = "/"; }, 1500);
                 }
-
+                loadPlayers();
                 break;
         }
     }
@@ -139,9 +146,15 @@ window.GameClient = (() => {
         return go(`/game/${cfg.gameCode}/players`, "GET")
             .then(data => {
                 if (data.players) currentGameState.players = data.players || [];
+                if (data.gameState) {
+                    currentGameState = data.gameState;
+                }
                 renderPlayers(currentGameState.players);
                 const isMatch = cfg.mode === "match";
-                if (isMatch) initBoard();
+                if (isMatch) {
+                    initBoard();
+                    actualizarVisibilidadDado();
+                }
                 return data;
             });
     }
@@ -331,9 +344,13 @@ window.GameClient = (() => {
         const container = document.getElementById('tablero-container');
         if (!container || typeof SVG === "undefined") return;
 
+        // ¡LA SOLUCIÓN QUIRÚRGICA! 
+        // Vaciamos el contenedor borrando cualquier instancia previa de SVG antes de crear la nueva.
+        container.innerHTML = "";
+
         const draw = SVG().addTo('#tablero-container');
 
-        // 1. PALETA DE COLORES FIJOS (Estilo Trivial Pursuit vibrante)
+        // 1. PALETA DE COLORES FIJOS
         const CATEGORY_COLORS = [
             '#E15759', // Rojo coral / Salmón oscuro
             '#F28E2B', // Naranja suave
@@ -409,7 +426,7 @@ window.GameClient = (() => {
 
         function getBoardCoords(pos) {
             if (pos === 0) return { x: 0, y: 7 };
-            if (pos === 65) return { x: 8, y: 0 };
+            if (pos === 65) return { x: 0, y: 0 };
 
             const adjPos = pos - 1;
             const gridCols = 8;
@@ -503,6 +520,59 @@ window.GameClient = (() => {
         // Registramos el evento resize de forma limpia
         window.addEventListener('resize', redraw);
 
+    }
+
+    // Variable de control para no duplicar escuchadores del botón
+    let dadoListenerAsignado = false;
+
+    function actualizarVisibilidadDado() {
+        const btnDado = document.getElementById("btn-tirar-dado");
+        if (!btnDado) return;
+
+        // Leemos de la variable del módulo
+        const state = currentGameState || {};
+
+        // Comprobamos los IDs asegurando tipos numéricos
+        const miTurno = Number(state.currentTurnPlayerId) === Number(cfg.currentUserId);
+
+        if (miTurno) {
+            btnDado.classList.remove("d-none");
+        } else {
+            btnDado.classList.add("d-none");
+        }
+
+        // Asignamos el evento click una sola vez
+        if (!dadoListenerAsignado) {
+            btnDado.addEventListener("click", () => {
+                // Deshabilitamos inmediatamente para evitar doble click accidental
+                btnDado.disabled = true;
+
+                const headers = {
+                    'Content-Type': 'application/json'
+                };
+
+                if (config && config.csrf && config.csrf.header && config.csrf.value) {
+                    headers[config.csrf.header] = config.csrf.value;
+                }
+
+                fetch(`/game/${cfg.gameCode}/roll-dice`, {
+                    method: 'POST',
+                    headers: headers
+                })
+                    .then(res => res.json())
+                    .then(data => {
+                        btnDado.disabled = false;
+                        if (data.status === "error") {
+                            alert(data.message);
+                        }
+                    })
+                    .catch(err => {
+                        btnDado.disabled = false;
+                        console.error("Error al tirar el dado:", err);
+                    });
+            });
+            dadoListenerAsignado = true;
+        }
     }
 
     // -------------------------------
