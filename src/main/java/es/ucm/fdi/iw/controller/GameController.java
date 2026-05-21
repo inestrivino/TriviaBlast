@@ -394,11 +394,34 @@ public class GameController {
             return false;
         });
 
-        if (!removed) {
+        if (!removed)
+
+        {
             return Map.of("status", "error", "message", "Jugador no encontrado en la partida");
         }
 
+        // SI SE EXPULSA AL PENULTIMO JUGADOR SE ACABA LA PARTIDA
         state.put("players", players);
+
+        boolean isLastPlayer = (players.size()) <= 1;
+        boolean isStarted = "STARTED".equalsIgnoreCase(game.getGameState());
+        boolean isFinished = "FINISHED".equalsIgnoreCase(game.getGameState().trim());
+
+        if (isStarted && isLastPlayer && !isFinished) {
+            if (!isFinished) {
+                // Expulsar a todos y eliminar el juego
+                Map<String, Object> wsMsg = new HashMap<>();
+                wsMsg.put("type", "player_kicked");
+                wsMsg.put("players", new ArrayList<>());
+                wsMsg.put("kickedPlayer", "all");
+                wsMsg.put("message", "Too few players..., redirecting...");
+
+                messagingTemplate.convertAndSend("/topic/" + code, wsMsg);
+
+                entityManager.remove(entityManager.contains(game) ? game : entityManager.merge(game));
+                return Map.of("status", "left");
+            }
+        }
 
         // Actualizar internalState en la base de datos
         game.setInternalState(objectMapper.writeValueAsString(state));
@@ -455,9 +478,11 @@ public class GameController {
 
         boolean isStarted = "STARTED".equalsIgnoreCase(game.getGameState());
 
+        boolean isFinished = "FINISHED".equalsIgnoreCase(game.getGameState().trim());
+
         if (isHost || (isStarted && willBeLastPlayer)) {
             // Host se va
-            if (!"FINISHED".equalsIgnoreCase(game.getGameState().trim())) {
+            if (!isFinished) {
                 // Expulsar a todos y eliminar el juego
                 Map<String, Object> wsMsg = new HashMap<>();
                 wsMsg.put("type", "player_kicked");
@@ -653,7 +678,9 @@ public class GameController {
                     return false;
                 }).findFirst().orElse(null);
 
-        if (existingPlayer != null) {
+        if (existingPlayer != null)
+
+        {
             // Ya estaba: actualizamos datos que puedan cambiar
             existingPlayer.put("username", u.getUsername());
         } else {

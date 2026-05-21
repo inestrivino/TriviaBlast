@@ -12,7 +12,6 @@ window.GameClient = (() => {
         gameCode: null,
         currentUserId: 0,
         hostId: 0,
-        isHost: false
     };
 
     // -------------------------------
@@ -163,8 +162,9 @@ window.GameClient = (() => {
         list.innerHTML = players.map(p => {
 
             const isMe = p.id === cfg.currentUserId;
-            const isHost = p.id === cfg.hostId;
+            const isHost = (p.id === cfg.hostId);
             const isMatch = cfg.mode === "match";
+            const iAmHost = (cfg.currentUserId === cfg.hostId);
 
             const style = isHost
                 ? "background: linear-gradient(90deg,#fff4d6,#fff)"
@@ -181,22 +181,19 @@ window.GameClient = (() => {
             // -------------------------
 
             let actionBtn = "";
-
             // HOST CAN KICK EVERYWHERE
-            if (cfg.isHost && !isMe) {
-
+            if (!isMe && iAmHost) {
                 actionBtn = `
-<button
-    class="btn btn-outline-danger btn-sm ms-2"
-    data-kick-id="${p.id}"
-    data-kick-name="${escapeHtml(p.username)}">
-    <i class="bi bi-person-x"></i>
-</button>`;
+                    <button
+                    class="btn btn-outline-danger btn-sm ms-2"
+                    data-kick-id="${p.id}"
+                    data-kick-name="${escapeHtml(p.username)}">
+                    <i class="bi bi-person-x"></i>
+                    </button>`;
             }
 
             // PLAYER CAN LEAVE
             else if (isMe) {
-
                 actionBtn = `
                 <button
                     class="btn btn-outline-secondary btn-sm ms-2"
@@ -212,9 +209,7 @@ window.GameClient = (() => {
             // -------------------------
 
             let pointsBadge = "";
-
             if (isMatch) {
-
                 pointsBadge = `
                 <span class="badge bg-primary">
                     ${p.points ?? 0} pts
@@ -222,33 +217,25 @@ window.GameClient = (() => {
             }
 
             return `
-<li class="list-group-item d-flex justify-content-between align-items-center"
-    style="${style}">
+        <li class="list-group-item d-flex justify-content-between align-items-center" style="${style}">
 
-    <div class="d-flex align-items-center">
-
-        <img src="/user/${p.id}/pic"
+            <div class="d-flex align-items-center">
+            <img src="/user/${p.id}/pic"
              class="rounded-circle me-2"
              style="width:38px;height:38px;object-fit:cover">
 
-        <span class="${isHost ? 'fw-bold text-warning' : ''}">
+            <span class="${isHost ? 'fw-bold text-warning' : ''}">
             ${icon}${escapeHtml(p.username)}
-        </span>
+            </span>
+            </div>
 
-    </div>
+            <div class="d-flex align-items-center gap-2">
+            ${pointsBadge}  
+            ${actionBtn}
+            </div>
 
-    <div class="d-flex align-items-center gap-2">
-
-        ${pointsBadge}
-
-        ${actionBtn}
-
-    </div>
-
-</li>`;
-
-        }).join("");
-
+        </li>`;
+        }).join("");    
         const startBtn = document.getElementById("start-btn");
 
         if (startBtn) {
