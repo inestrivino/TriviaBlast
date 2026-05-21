@@ -1,10 +1,9 @@
 <!--
-    Barra de navegación. Muestra/oculta opciones según
-    si hay sesión (${session.u}) y si es ADMI
+    Barra de navegación dinámica de TriviaBlast
+    Muestra/oculta opciones según el estado de la sesión (${session.u})
 -->
-
 <!DOCTYPE html>
-<html class="h-100" xmlns:th="http://www.thymeleaf.org">
+<html class="h-100" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 
 <head>
     <title>TriviaBlast Nav Fragment</title>
@@ -13,82 +12,83 @@
 <body class="d-flex flex-column h-100">
 
     <header th:fragment="nav">
-        <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom shadow-sm">
             <div class="container-fluid">
 
-                <!-- Logo + Title -->
-                <a class="navbar-brand d-flex align-items-center" th:href="@{/}" href="/">
+                <!-- Logo + Enlace al Home (Siempre visible) -->
+                <a class="navbar-brand d-flex align-items-center fw-bold text-primary" th:href="@{/}" href="/">
                     <img th:src="@{/img/logo.png}" src="/img/logo.png" alt="logo TriviaBlast" width="32" height="32"
                         class="d-inline-block align-text-top me-2">
                     TriviaBlast
                 </a>
 
-
-                <!-- Hamburger view for small screens -->
+                <!-- Hamburguesa para pantallas móviles -->
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent"
                     aria-controls="navbarContent" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
 
-                <!-- Menu -->
+                <!-- Contenido del Menú -->
                 <div class="collapse navbar-collapse" id="navbarContent">
                     <ul class="navbar-nav ms-auto align-items-center">
 
-                        <!-- Scoreboard button -->
-                        <li class="nav-item mx-2">
-                            <a class="nav-link" th:href="@{/user/scoreboard}" href="/user/scoreboard">Scoreboard</a>
-                        </li>
-
-                        <!-- Proposal button -->
-                        <li class="nav-item mx-2">
-                            <a class="nav-link" th:href="@{/proposal}" href="/proposal">Proposal</a>
-                        </li>
-
-                        <!-- Dropdown Views -->
-                        <li class="nav-item dropdown mx-2">
-                            <a class="nav-link dropdown-toggle" href="#" id="viewsDropdown" role="button"
-                                data-bs-toggle="dropdown" aria-expanded="false">
-                                Views
+                        <!-- Enlace a la Propuesta (Siempre visible) -->
+                        <li class="nav-item mx-1">
+                            <a class="nav-link" th:href="@{/proposal}" href="/proposal">
+                                Proposal
                             </a>
-                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="viewsDropdown">
-                                <li><a class="dropdown-item" th:href="@{/join_game}" href="/join_game">Join Game</a>
-                                </li>
-                                <li><a class="dropdown-item" th:href="@{/multi_game}" href="/multi_game">Multi Game</a>
-                                </li>
-                                <li><a class="dropdown-item" th:href="@{/multi_game_setup}"
-                                        href="/multi_game_setup">Multi Game Setup</a></li>
-                                <li><a class="dropdown-item" th:href="@{/multi_victoryscr}"
-                                        href="/multi_victoryscr">Multi Victory</a></li>
-                                <li><a class="dropdown-item" th:href="@{/user/profile}" href="/user/profile">Profile</a></li>
-                            </ul>
                         </li>
 
-                        <!-- Log in -->
-                        <th:block th:unless="${u}">
-                            <li class="nav-item mx-2">
-                                <a class="btn btn-outline-primary btn-sm" th:href="@{/login}" href="/login"
-                                    sec:authorize="isAnonymous()">Login</a>
+                        <!-- VISTAS EXCLUSIVAS PARA USUARIOS LOGUEADOS -->
+                        <th:block th:if="${session.u != null}">
+
+                            <li class="nav-item mx-1">
+                                <a class="nav-link" th:href="@{/user/scoreboard}" href="/scoreboard">
+                                    Scoreboard
+                                </a>
                             </li>
-                            <!--/*
-                                Esto es un comentario "thymeleaf" - no se verá en el HTML
-                                El bloque de "debug" sólo está activado si application.properties tiene debug a "true"
-                                    (ver StartupConfig.java para ver cómo se lee de la configuración
-                                    y luego se escribe a ${application.debug})
-                            */-->
-                            <li class="nav-item debug align-self-center" th:if="${application.debug}">
-                                <form class="d-flex" th:action="@{/login}" method="post">
+
+                            <!-- Enlace directo a Profile -->
+                            <li class="nav-item mx-1">
+                                <a class="nav-link fw-semibold" th:href="@{/user/profile}" href="/user/profile">
+                                    <i class="bi bi-person-circle me-1"></i>Profile
+                                </a>
+                            </li>
+
+                        </th:block>
+
+                        <!-- COMPONENTES DE LOGIN (Solo si NO hay sesión activa) -->
+                        <th:block th:unless="${session.u != null}">
+
+                            <!-- Botón de Login normal -->
+                            <li class="nav-item mx-2">
+                                <a class="btn btn-primary btn-sm px-3" th:href="@{/login}" href="/login">
+                                    <i class="bi bi-box-arrow-in-right me-1"></i>Login
+                                </a>
+                            </li>
+
+                            <!-- Contenedor compacto de Login Automático de Debug (A / B) -->
+                            <li class="nav-item d-flex align-items-center gap-1 bg-white p-1 rounded border border-danger-subtle mx-1"
+                                th:if="${application.debug}" title="Modo Debug: Login rápido">
+                                <span class="text-danger small px-1 font-monospace fw-bold">DEBUG:</span>
+
+                                <!-- Login rápido como 'a' -->
+                                <form th:action="@{/login}" method="post" class="m-0">
                                     <input type="hidden" name="username" value="a">
                                     <input type="hidden" name="password" value="aa">
-                                    <button type="submit" class="btn btn-outline-danger btn-sm">a</button>
+                                    <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-2 fw-bold"
+                                        style="font-size: 0.75rem;">A</button>
                                 </form>
-                            </li>
-                            <li class="nav-item debug align-self-center" th:if="${application.debug}">
-                                <form class="d-flex" th:action="@{/login}" method="post">
+
+                                <!-- Login rápido como 'b' -->
+                                <form th:action="@{/login}" method="post" class="m-0">
                                     <input type="hidden" name="username" value="b">
                                     <input type="hidden" name="password" value="aa">
-                                    <button type="submit" class="btn btn-outline-danger btn-sm">b</button>
+                                    <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-2 fw-bold"
+                                        style="font-size: 0.75rem;">B</button>
                                 </form>
                             </li>
+
                         </th:block>
                     </ul>
                 </div>

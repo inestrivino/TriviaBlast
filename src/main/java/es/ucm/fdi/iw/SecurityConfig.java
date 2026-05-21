@@ -14,14 +14,12 @@ import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 
-
 /**
 * CONFIGURACIÓN DE SEGURIDAD 
 
 * Define qué URLs requieren login, qué roles pueden acceder a qué,
 * y cómo funciona el formulario de login
 */
-
 
 /**
  * Security configuration.
@@ -50,17 +48,17 @@ public class SecurityConfig {
 	 */
 
 	/*
-	* El método principal
-	* Define las reglas de acceso:
-	* · /css/**, /js/**, /img/**, /error → públicas (sin login)
-	* · /login, /user/register, /proposal, /authors -> publicas
-	* · /api/** → públicas (la API no requiere login por defecto)
-	* · /admin/** → solo rol ADMIN
-	* · /user/** → solo rol USER
-	* · resto → cualquier usuario autenticado
-	* Si hay modo debug (es.ucm.fdi.debug=true), permite acceso a /h2
-	* (consola de la base de datos H2)
-	*/
+	 * El método principal
+	 * Define las reglas de acceso:
+	 * · /css/**, /js/**, /img/**, /error → públicas (sin login)
+	 * · /login, /user/register, /proposal, /authors -> publicas
+	 * · /api/** → públicas (la API no requiere login por defecto)
+	 * · /admin/** → solo rol ADMIN
+	 * · /user/** → solo rol USER
+	 * · resto → cualquier usuario autenticado
+	 * Si hay modo debug (es.ucm.fdi.debug=true), permite acceso a /h2
+	 * (consola de la base de datos H2)
+	 */
 
 	@Bean
 	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -71,8 +69,7 @@ public class SecurityConfig {
 			http.csrf(csrf -> csrf
 					.ignoringRequestMatchers("/h2/**"));
 			http.authorizeHttpRequests(authorize -> authorize
-					.requestMatchers("/h2/**").permitAll()
-			);
+					.requestMatchers("/h2/**").permitAll());
 			http.headers(header -> header.frameOptions(frameOptions -> frameOptions.sameOrigin()));
 		}
 
@@ -90,8 +87,11 @@ public class SecurityConfig {
 								"/proposal",
 								"/authors",
 								"/index",
-								"/join_game",
-								"/login")
+								"/login",
+								"/single_game_setup",
+								"/single_game",
+								"/game/start_single_game",
+								"/game/answer")
 						.permitAll()
 
 						.requestMatchers("/api/**").permitAll()
@@ -130,7 +130,8 @@ public class SecurityConfig {
 	 * This is used to translate from Spring Security users to in-application users.
 	 */
 
-	// bean que conecta Spring Security con nuestra tabla de usuarios (IwUserDetailsService)
+	// bean que conecta Spring Security con nuestra tabla de usuarios
+	// (IwUserDetailsService)
 	@Bean
 	public IwUserDetailsService springDataUserDetailsService() {
 		return new IwUserDetailsService();
@@ -145,7 +146,8 @@ public class SecurityConfig {
 	 * https://docs.spring.io/spring-security/reference/servlet/authentication/passwords/index.html#publish-authentication-manager-bean
 	 */
 
-	//  permite autenticar usuarios manualmente desde código Java (p.ej. al registrar un usuario nuevo)
+	// permite autenticar usuarios manualmente desde código Java (p.ej. al registrar
+	// un usuario nuevo)
 	@Bean
 	public AuthenticationManager authenticationManager(
 			UserDetailsService userDetailsService,

@@ -265,7 +265,6 @@ function initSingleplayerGame() {
         if (!window.questions || !window.questions[index]) return;
         const q = window.questions[index];
 
-        // CORRECCIÓN: Sanitización básica contra XSS usando textContent combinada con tu helper de decodificación
         document.getElementById("question").textContent = decodeHtml(q.question);
 
         const answersEl = document.getElementById("answers");
@@ -278,7 +277,7 @@ function initSingleplayerGame() {
         q.answers.forEach(answer => {
             const btn = document.createElement("button");
             btn.className = "btn btn-outline-primary";
-            btn.textContent = decodeHtml(answer); // CORRECCIÓN: Evitamos innerHTML en las respuestas
+            btn.textContent = decodeHtml(answer); 
 
             btn.onclick = () => sendAnswer(answer, q.id, btn);
             answersEl.appendChild(btn);
