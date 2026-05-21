@@ -45,7 +45,7 @@ function initTableToggleButtons() {
     buttons.forEach(button => {
         button.addEventListener('click', () => {
             const userId = button.dataset.id;
-            const url = window.location.origin + '/admin/toggle-user/' + userId;
+            const url = window.location.origin + '/admin/toggleView/' + userId;
 
             fetch(url, {
                 method: "POST",

@@ -706,11 +706,38 @@ public class UserController {
    * enabled = true
    */
   @GetMapping("/scoreboard")
-  public String scoreboard(Model model) {
-    // Traemos los usuarios ordenados por puntos de la Base de Datos directamente
-    List<User> users = entityManager.createQuery(
-        "SELECT u FROM User u ORDER BY u.totalPoints DESC", User.class)
-        .getResultList();
+  public String scoreboard(Model model, Authentication authentication) {
+    List<User> users;
+
+    // 1. Verificar si el usuario actual está autenticado
+    boolean isAdmin = false;
+    if (authentication != null && authentication.isAuthenticated()) {
+      String currentUsername = authentication.getName();
+
+      try {
+        User currentUser = entityManager.createQuery(
+            "SELECT u FROM User u WHERE u.username = :username", User.class)
+            .setParameter("username", currentUsername)
+            .getSingleResult();
+
+        if (currentUser.getRoles() != null && currentUser.getRoles().contains("ADMIN")) {
+          isAdmin = true;
+        }
+      } catch (Exception e) {
+        isAdmin = false;
+      }
+    }
+
+    if (isAdmin) {
+      users = entityManager.createQuery(
+          "SELECT u FROM User u ORDER BY u.totalPoints DESC", User.class)
+          .getResultList();
+    } else {
+      // Los usuarios normales y anónimos SOLO ven los que tienen enabled = true
+      users = entityManager.createQuery(
+          "SELECT u FROM User u WHERE u.enabled = true ORDER BY u.totalPoints DESC", User.class)
+          .getResultList();
+    }
 
     model.addAttribute("users", users);
     return "scoreboard";
@@ -744,12 +771,12 @@ public class UserController {
     Message dbMessage = new Message();
     dbMessage.setSender(me);
     dbMessage.setText(textoMensaje);
-    dbMessage.setDateSent(java.time.LocalDateTime.now()); 
+    dbMessage.setDateSent(java.time.LocalDateTime.now());
     dbMessage.setAdminOnly(true);
     dbMessage.setGame(null);
 
     entityManager.persist(dbMessage);
-    entityManager.flush(); 
+    entityManager.flush();
 
     // 2. PREPARAR PAYLOAD WEBSOCKET
     ObjectMapper mapper = new ObjectMapper();
@@ -758,8 +785,7 @@ public class UserController {
     Map<String, Object> alertPayload = Map.of(
         "from", "SISTEMA (Denuncia)",
         "text", textoMensaje,
-        "sent", horaActual 
-    );
+        "sent", horaActual);
 
     String jsonAlert = mapper.writeValueAsString(alertPayload);
 
