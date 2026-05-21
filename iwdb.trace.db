@@ -108,3 +108,11 @@ GAME [42001-232]
 org.h2.jdbc.JdbcSQLSyntaxErrorException: Error de Sintaxis en sentencia SQL "[*]GAME"; se esperaba "GRANT"
 Syntax error in SQL statement "[*]GAME"; expected "GRANT"; SQL statement:
 GAME [42001-232]
+2026-05-21 18:40:46.303873+02:00 jdbc[13]: exception
+org.h2.jdbc.JdbcSQLSyntaxErrorException: Error de Sintaxis en sentencia SQL "[*]IWUSER"; se esperaba "INSERT"
+Syntax error in SQL statement "[*]IWUSER"; expected "INSERT"; SQL statement:
+IWUSER [42001-232]
+2026-05-21 18:40:48.021746+02:00 jdbc[13]: exception
+org.h2.jdbc.JdbcSQLSyntaxErrorException: Error de Sintaxis en sentencia SQL "[*]IWUSER IWUSER"; se esperaba "INSERT"
+Syntax error in SQL statement "[*]IWUSER IWUSER"; expected "INSERT"; SQL statement:
+IWUSER IWUSER [42001-232]

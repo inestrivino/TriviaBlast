@@ -84,12 +84,6 @@ public class RootController {
         return "multi_victoryscr";
     }
 
-    // muestra profile.html
-    @GetMapping("/profile")
-    public String profile(Model model) {
-        return "profile";
-    }
-
     // muestra proposal.html
     @GetMapping("/proposal")
     public String proposal(Model model) {

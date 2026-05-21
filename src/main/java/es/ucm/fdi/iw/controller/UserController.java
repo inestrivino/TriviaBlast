@@ -141,11 +141,22 @@ public class UserController {
   // Obtiene el usuario de la sesión y renderiza profile.html
   @GetMapping("/profile")
   public String profile(Model model, HttpSession session) {
-    User user = (User) session.getAttribute("u");
-    if (user == null) {
+    User sessionUser = (User) session.getAttribute("u");
+    if (sessionUser == null) {
       return "redirect:/login";
     }
-    model.addAttribute("user", user);
+
+    User freshUser = entityManager.find(User.class, sessionUser.getId());
+
+    // Si por algún motivo el usuario ya no existe en la BD (ej. borrado),
+    // protegemos la app
+    if (freshUser == null) {
+      session.invalidate(); // Limpiamos sesión inválida
+      return "redirect:/login";
+    }
+
+    // Le pasamos a Thymeleaf el usuario recién sacado de la BD 
+    model.addAttribute("user", freshUser);
     return "profile";
   }
 

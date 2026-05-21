@@ -164,10 +164,27 @@ window.GameClient = (() => {
                     currentGameState = data.gameState;
                 }
                 renderPlayers(currentGameState.players);
+
                 const isMatch = cfg.mode === "match";
                 if (isMatch) {
                     initBoard();
                     actualizarVisibilidadDado();
+
+                    const infoTurno = currentGameState.turnInfo || {};
+                    const preguntaPendiente = infoTurno.subState === "QUESTION_PENDING";
+
+                    // Extraemos la pregunta guardada nativamente en el gameState
+                    const preguntaActiva = currentGameState.activeQuestion;
+
+                    if (preguntaPendiente && preguntaActiva) {
+                        console.log("Restaurando pregunta recuperada directamente desde el GameState...");
+
+                        setTimeout(() => {
+                            gestionarModalPregunta(preguntaActiva);
+                        }, 150);
+                    } else {
+                        gestionarModalPregunta(null);
+                    }
                 }
                 return data;
             });
@@ -305,7 +322,7 @@ window.GameClient = (() => {
 
         go(`/game/${cfg.gameCode}/start`, "POST")
             .then(d => {
-                if (d.status === "started") {
+                if (d.status === "success") {
                     setStatus("Starting game...", "success");
                 } else {
                     setStatus(d.message || "Error", "danger");
