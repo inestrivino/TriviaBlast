@@ -1,5 +1,5 @@
 <!--
-    Página de inicio pública y dinámica de TriviaBlast
+    Página de inicio de TriviaBlast
 -->
 <!DOCTYPE html>
 <html lang="es" class="h-100" xmlns:th="http://www.thymeleaf.org"
@@ -36,7 +36,7 @@
                         scoreboard?
                     </p>
 
-                    <!-- Zona de Botones Dinámicos -->
+                    <!-- Zona de Botones -->
                     <div class="d-grid gap-3 d-sm-flex justify-content-sm-center">
 
                         <a th:href="@{/join_game}" class="btn btn-primary btn-lg px-4 py-3 fs-5 shadow-sm" sec:authorize="isAuthenticated()">

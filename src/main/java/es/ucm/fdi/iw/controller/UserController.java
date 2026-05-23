@@ -21,7 +21,6 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -38,12 +37,10 @@ import jakarta.servlet.http.HttpSession;
 import jakarta.transaction.Transactional;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.*;
 import java.security.SecureRandom;
-import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
@@ -72,24 +69,17 @@ import java.awt.image.BufferedImage;
 @Controller()
 @RequestMapping("user")
 public class UserController {
-
   private static final Logger log = LogManager.getLogger(UserController.class);
-
   @Autowired
   private EntityManager entityManager;
-
   @Autowired
   private LocalData localData;
-
   @Autowired
   private SimpMessagingTemplate messagingTemplate;
-
   @Autowired
   private PasswordEncoder passwordEncoder;
-
   @Autowired
   private AuthenticationManager authenticationManager;
-
   @ModelAttribute
   public void populateModel(HttpSession session, Model model) {
     for (String name : new String[] { "u", "url", "ws", "topics" }) {
@@ -117,7 +107,6 @@ public class UserController {
    *         for example, a possible encoding of "test" is
    *         {bcrypt}$2y$12$XCKz0zjXAP6hsFyVc8MucOzx6ER6IsC1qo5zQbclxhddR1t6SfrHm
    */
-
   // codifica contraseña con BCrypt
   public String encodePassword(String rawPassword) {
     return passwordEncoder.encode(rawPassword);
@@ -125,13 +114,9 @@ public class UserController {
 
   /**
    * Generates random tokens. From https://stackoverflow.com/a/44227131/15472
-   * 
-   * @param byteLength
-   * @return
    */
-
-  // genera tokens aleatorios seguros
-  // (usado también en AdminController para códigos de partida)
+  // genera tokens aleatorios seguros para la contraseña
+  //no se usó para los códigos de partida ya que crea tokens con chars no alfanuméricos
   public static String generateRandomBase64Token(int byteLength) {
     SecureRandom secureRandom = new SecureRandom();
     byte[] token = new byte[byteLength];
@@ -161,9 +146,6 @@ public class UserController {
     return "profile";
   }
 
-  /**
-   * Landing page for a user profile
-   */
   // Busca el usuario por ID en la BD y renderiza profile.html
   @GetMapping("{id}")
   public String index(@PathVariable long id, Model model, HttpSession session) {
@@ -172,7 +154,7 @@ public class UserController {
     return "profile";
   }
 
-  // hace login programático tras el registro
+  // helper que hace login programático tras el registro
   private void authenticateUser(String username, String rawPassword, HttpSession session) {
     Authentication authenticationRequest = UsernamePasswordAuthenticationToken.unauthenticated(username, rawPassword);
 
@@ -184,9 +166,6 @@ public class UserController {
         SecurityContextHolder.getContext());
   }
 
-  /**
-   * Alter or create a user
-   */
   /*
    * Registra un nuevo usuario. Valida que las contraseñas coincidan,
    * codifica la contraseña, persiste el User, y hace auto-login
@@ -283,10 +262,6 @@ public class UserController {
     }
   }
 
-  /**
-   * Alter or create a user
-   */
-
   /*
    * * Actualiza el perfil. Distingue tres sub-formularios vía el param
    * "formType":
@@ -295,7 +270,6 @@ public class UserController {
    * · "avatar" → redirige al endpoint /pic
    * Solo el propio usuario o un ADMIN pueden modificar un perfil
    */
-
   @PostMapping("/{id}")
   @Transactional
   public String postUser(
@@ -309,11 +283,8 @@ public class UserController {
       HttpSession session) throws IOException {
 
     try {
-
       User requester = (User) session.getAttribute("u");
-
       User target = null;
-
       if (id == -1 && requester.hasRole("ADMIN")) {
         target = new User();
         target.setPassword(encodePassword(generateRandomBase64Token(12)));
@@ -335,23 +306,17 @@ public class UserController {
       }
 
       if ("password".equals(formType)) {
-
         if (edited.getPassword() != null
             && !edited.getPassword().isEmpty()) {
-
           if (!passwordEncoder.matches(currentPassword, target.getPassword())) {
-
             model.addAttribute("error", "Current password is incorrect");
             model.addAttribute("openTab", "password");
-
             return "profile";
           }
 
           if (!edited.getPassword().equals(pass2)) {
-
             model.addAttribute("error", "Passwords do not match");
             model.addAttribute("openTab", "password");
-
             return "profile";
           }
 
@@ -361,7 +326,6 @@ public class UserController {
       } else if ("userNameEmail".equals(formType)) {
         if (edited.getUsername() != null
             && !edited.getUsername().isEmpty()) {
-
           Long existingUsername = entityManager
               .createQuery("""
                       SELECT COUNT(u)
@@ -379,13 +343,11 @@ public class UserController {
             model.addAttribute("openTab", "name");
             return "profile";
           }
-
           target.setUsername(edited.getUsername());
         }
 
         if (edited.getEmail() != null
             && !edited.getEmail().isEmpty()) {
-
           Long existingEmail = entityManager
               .createQuery("""
                       SELECT COUNT(u)
@@ -413,7 +375,6 @@ public class UserController {
         model.addAttribute("error", "Unknown form type");
         return "profile";
       }
-
       entityManager.merge(target);
       entityManager.flush();
 
@@ -421,19 +382,13 @@ public class UserController {
       if (requester.getId() == target.getId()) {
         session.setAttribute("u", target);
       }
-
       return "redirect:/user/" + id;
-
     } catch (
 
     Exception e) {
-
       log.error("Error updating user", e);
-
       String msg = e.getMessage();
-
       if (msg != null) {
-
         String lower = msg.toLowerCase();
 
         if (lower.contains("username")) {
@@ -445,7 +400,6 @@ public class UserController {
 
       model.addAttribute("error",
           msg != null ? msg : "Error updating profile");
-
       model.addAttribute("openTab", formType);
 
       User target = entityManager.find(User.class, id);
@@ -455,24 +409,12 @@ public class UserController {
     }
   }
 
-  /**
-   * Returns the default profile pic
-   * 
-   * @return
-   */
+  // helper que devuelve la foto de perfil básica
   private static InputStream defaultPic() {
     return new BufferedInputStream(Objects.requireNonNull(
         UserController.class.getClassLoader().getResourceAsStream(
             "static/img/default-pic.jpg")));
   }
-
-  /**
-   * Downloads a profile pic for a user id
-   * 
-   * @param id
-   * @return
-   * @throws IOException
-   */
 
   // Descarga la foto de perfil. Si no existe, devuelve la foto por defecto
   @GetMapping("{id}/pic")
@@ -482,13 +424,6 @@ public class UserController {
     return os -> FileCopyUtils.copy(in, os);
   }
 
-  /**
-   * Uploads a profile pic for a user id
-   * 
-   * @param id
-   * @return
-   * @throws IOException
-   */
   // Guarda la foto subida en ./iwdata/user /{id}.jpg
   @PostMapping("{id}/pic")
   @Transactional
@@ -581,10 +516,6 @@ public class UserController {
     return "error";
   }
 
-  /**
-   * Returns JSON with all received messages
-   */
-
   // Devuelve mensajes enviados por el usuario como JSON
   @GetMapping(path = "received", produces = "application/json")
   @Transactional // para no recibir resultados inconsistentes
@@ -600,80 +531,6 @@ public class UserController {
     return messages.stream()
         .map(Message::toTransfer)
         .collect(Collectors.toList());
-    /**
-     * User u = entityManager.find(User.class, userId);
-     * log.info("Generating message list for user {} ({} messages)",
-     * u.getUsername(), u.getReceived().size());
-     * return
-     * u.getReceived().stream().map(Transferable::toTransfer).collect(Collectors.toList());
-     **/
-  }
-
-  /**
-   * Returns JSON with count of unread messages
-   */
-
-  // Cuenta mensajes no leídos (usando named query Message.countUnread)
-  @GetMapping(path = "unread", produces = "application/json")
-  @ResponseBody
-  public String checkUnread(HttpSession session) {
-    long userId = ((User) session.getAttribute("u")).getId();
-    long unread = entityManager.createNamedQuery("Message.countUnread", Long.class)
-        .setParameter("userId", userId)
-        .getSingleResult();
-    session.setAttribute("unread", unread);
-    return "{\"unread\": " + unread + "}";
-  }
-
-  /**
-   * Posts a message to a user.
-   * 
-   * @param id of target user (source user is from ID)
-   * @param o  JSON-ized message, similar to {"message": "text goes here"}
-   * @throws JsonProcessingException
-   */
-
-  // Envía un mensaje a otro usuario por WebSocket
-  // (/user/{username}/queue/updates)
-  @PostMapping("/{id}/msg")
-  @ResponseBody
-  @Transactional
-  public String postMsg(@PathVariable long id,
-      @RequestBody JsonNode o, Model model, HttpSession session)
-      throws JsonProcessingException {
-
-    String text = o.get("message").asText();
-    User u = entityManager.find(User.class, id);
-    User sender = entityManager.find(
-        User.class, ((User) session.getAttribute("u")).getId());
-    model.addAttribute("user", u);
-
-    // construye mensaje, lo guarda en BD
-    Message m = new Message();
-    // m.setRecipient();
-    m.setSender(sender);
-    m.setDateSent(LocalDateTime.now());
-    m.setText(text);
-    entityManager.persist(m);
-    entityManager.flush(); // to get Id before commit
-
-    ObjectMapper mapper = new ObjectMapper();
-    /*
-     * // construye json: método manual
-     * ObjectNode rootNode = mapper.createObjectNode();
-     * rootNode.put("from", sender.getUsername());
-     * rootNode.put("to", u.getUsername());
-     * rootNode.put("text", text);
-     * rootNode.put("id", m.getId());
-     * String json = mapper.writeValueAsString(rootNode);
-     */
-    // persiste objeto a json usando Jackson
-    String json = mapper.writeValueAsString(m.toTransfer());
-
-    log.info("Sending a message to {} with contents '{}'", id, json);
-
-    messagingTemplate.convertAndSend("/user/" + u.getUsername() + "/queue/updates", json);
-    return "{\"result\": \"message sent.\"}";
   }
 
   // Borra el usuario de la BD. Si se borra a sí mismo, cierra sesión
@@ -700,11 +557,7 @@ public class UserController {
     return "redirect:/";
   }
 
-  /*
-   * Devuelve la lista de usuarios ordenados por totalPoints.
-   * Los admins ven todos; los usuarios solo ven los que tienen
-   * enabled = true
-   */
+  // devuelve el scoreboard de los usuarios
   @GetMapping("/scoreboard")
   public String scoreboard(Model model, Authentication authentication) {
     List<User> users;
@@ -743,6 +596,7 @@ public class UserController {
     return "scoreboard";
   }
 
+  // permite a un usuario reportar a otro ante los administradores
   @PostMapping("/report/{id}")
   @ResponseBody
   @Transactional

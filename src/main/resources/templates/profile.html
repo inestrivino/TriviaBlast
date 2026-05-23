@@ -22,7 +22,7 @@
 
                     <div class="card shadow p-4 position-relative">
 
-                        <!-- Button to open edit modal -->
+                        <!-- BOTÓN PARA ABRIR EL MODAL DE EDICIÓN DE USUARIO -->
                         <button
                             class="btn btn-secondary position-absolute top-0 end-0 m-3 d-flex align-items-center justify-content-center "
                             data-bs-toggle="modal" data-bs-target="#miModal">
@@ -30,7 +30,7 @@
                         </button>
 
 
-                        <!-- Edit profile modal -->
+                        <!-- MODAL PARA EDITAR USUARIO -->
                         <div class="modal fade" id="miModal" tabindex="-1">
                             <div class="modal-dialog">
                                 <div class="modal-content">
@@ -61,7 +61,7 @@
                                             <div th:if="${error}" class="alert alert-danger">
                                                 <p>Edit profile failed: <span th:text="${error}"></span></p>
                                             </div>
-                                            <!-- PROFILE PICTURE -->
+                                            <!-- AVATAR -->
                                             <div class="tab-pane fade show active" id="picture">
                                                 <form th:action="@{'/user/' + ${user.id} + '/pic'}" method="post"
                                                     enctype="multipart/form-data">
@@ -152,24 +152,24 @@
                             </div>
                         </div>
 
-                        <!-- Profile picture -->
+                        <!-- AVATAR -->
                         <div class="text-center">
                             <img div class="rounded-circle overflow-hidden mx-auto" style="width: 150px; height: 150px;"
                                 th:src="@{'/user/' + ${user.id} + '/pic'}" alt="User Avatar">
                         </div>
 
-                        <!-- Username -->
+                        <!-- NOMBRE -->
                         <h2 class="text-center mb-3" th:text="${user.username}">Username</h2>
 
                         <hr>
 
-                        <!-- Total Points -->
+                        <!-- PUNTOS TOTALES -->
                         <p>
                             <strong>Total Points:</strong>
                             <span class="text-success" th:text="${user.totalPoints}">0</span>
                         </p>
 
-                        <!-- ACTION BUTTONS -->
+                        <!-- BOTONES DE ACCION -->
                         <div class="d-grid gap-2">
                             <!-- Logout -->
                             <form th:action="@{/logout}" method="post">
@@ -196,10 +196,8 @@
     <script th:src="@{/js/triviablast.js}"></script>
 
     <script>
-        //TO DO: FRONTEND SHOULD UPDATE WITH AJAX THIS IS TEMPORARY
         window.addEventListener('DOMContentLoaded', function () {
             const openTab = document.body.dataset.openTab;
-
             if (openTab) {
                 const modalEl = document.getElementById('miModal');
                 const modal = new bootstrap.Modal(modalEl);

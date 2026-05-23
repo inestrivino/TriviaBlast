@@ -59,14 +59,10 @@ import jakarta.transaction.Transactional;
 @Controller
 @RequestMapping("/game")
 public class GameController {
-
     private final AuthenticationManager authenticationManager;
-
     private static final Logger log = LogManager.getLogger(GameController.class);
-
     @Autowired
     private EntityManager entityManager;
-
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
 
@@ -86,20 +82,15 @@ public class GameController {
      * SINGLE PLAYER
      * ================
      */
-
-    /*
-     * Llama a OpenTDB con los parámetros de GameSetupDTO, construye la
-     * lista de preguntas mezclando respuestas correctas e incorrectas,
-     * guarda las preguntas COMPLETAS (con respuesta correcta) en sesión
-     * como "questions" (List<QuestionDataPrivateDTO>), y manda al
-     * frontend solo QuestionDataPublicDTO (sin la respuesta correcta)
-     * Renderiza single_game.html
-     */
+    // Comienza la partida de un solo jugador
     @PostMapping("/start_single_game")
     public String startGame(@ModelAttribute GameSetupDTO setup,
             Model model,
             HttpSession session) {
 
+        // crea la url para la llamada a la api externa con el numero de preguntas que
+        // se hayan pedido
+        // la categoría y la dificultad seleccionadas
         String url = "https://opentdb.com/api.php?amount=" + setup.getQuestionCount();
         if (setup.getCategory() != null && !setup.getCategory().isEmpty()) {
             url += "&category=" + setup.getCategory();
@@ -108,14 +99,17 @@ public class GameController {
             url += "&difficulty=" + setup.getDifficulty().toLowerCase();
         }
 
+        // creamos una llamada a la api con el url y recibimos la respuesta
         RestTemplate rest = new RestTemplate();
         Map<String, Object> response = rest.getForObject(url, Map.class);
-
         List<Map<String, Object>> results = (List<Map<String, Object>>) response.get("results");
 
-        List<QuestionDataPrivateDTO> fullQuestions = new ArrayList<>(); // full data stored in session
-        List<QuestionDataPublicDTO> publicQuestions = new ArrayList<>(); // safe version for frontend
+        // arrays para las preguntas (versión completa para validación y versión
+        // limitada para el cliente)
+        List<QuestionDataPrivateDTO> fullQuestions = new ArrayList<>();
+        List<QuestionDataPublicDTO> publicQuestions = new ArrayList<>();
 
+        // por cada pregunta, mezclamos las respuestas y las metemos en los arrays
         int i = 0;
         for (Map<String, Object> q : results) {
             List<String> answers = new ArrayList<>();
@@ -131,31 +125,33 @@ public class GameController {
             i++;
         }
 
+        // insertamos las preguntas tanto en la sesión (enteras) como en el modelo
+        // (cliente)
         session.setAttribute("questions", fullQuestions);
         model.addAttribute("questions", publicQuestions);
 
+        // redirigimos a la pantalla de juego
         return "single_game";
     }
 
-    /*
-     * Recibe{questionId, answer} del frontend
-     * Comprueba contra las preguntas guardadas en sesión
-     * Si es correcta, suma 10 puntos al User en la BD
-     * Devuelve {correct, correctAnswer} como JSON
-     */
+    // Comprueba si la respuesta dada es correcta o no
     @PostMapping("/answer")
     @ResponseBody
     @Transactional
     public AnswerResDTO checkAnswer(@RequestBody AnswerReqDTO req, HttpSession session) {
+        // recupera la lista de preguntas enteras
         List<QuestionDataPrivateDTO> questions = (List<QuestionDataPrivateDTO>) session.getAttribute("questions");
 
         if (questions == null || req.getQuestionId() >= questions.size()) {
             return new AnswerResDTO(false, null);
         }
 
+        // compara la respuesta dada con la correcta para determinar su validez
         QuestionDataPrivateDTO q = questions.get(req.getQuestionId());
         boolean isCorrect = q.getCorrectAnswer().equals(req.getAnswer());
 
+        // si la respuesta es correcta inserta 10 puntos en la BD para el usuario que la
+        // envío
         if (isCorrect) {
             User user = (User) session.getAttribute("u");
             if (user != null) {
@@ -170,6 +166,7 @@ public class GameController {
             }
         }
 
+        // devuelve el resultado y la respuesta correcta
         return new AnswerResDTO(isCorrect, q.getCorrectAnswer());
     }
 
@@ -188,9 +185,12 @@ public class GameController {
             @RequestParam String difficulty,
             HttpSession session) throws JsonProcessingException {
 
+        // tomamos al usuario
         User u = (User) session.getAttribute("u");
         u = entityManager.find(User.class, u.getId());
 
+        // creamos la partida con sus categorías, un código generado, su dificultad, su
+        // estado (iniciado a WAITING) y su host
         Game game = new Game();
         Set<TriviaCategory> cats = (categories == null || categories.isEmpty())
                 ? EnumSet.allOf(TriviaCategory.class)
@@ -202,7 +202,6 @@ public class GameController {
         game.setDifficulty(difficulty);
         game.setGameState("WAITING");
         game.setHost(u);
-
         // Inicializar el estado interno de la partida
         Map<String, Object> initialState = new HashMap<>();
 
@@ -214,54 +213,64 @@ public class GameController {
         hostPlayer.put("boardPosition", 0);
         hostPlayer.put("gamePosition", 1);
         players.add(hostPlayer);
-
         initialState.put("players", players);
 
         // Orden de turnos: inicialmente solo el host
         Map<Integer, Long> turnOrder = new HashMap<>();
         turnOrder.put(1, u.getId());
         initialState.put("turnOrder", turnOrder);
-
+        // la "ultima tirada del dado" se inicializa a 0 (valor imposible)
         initialState.put("lastDiceRoll", 0);
-
+        // aunque se inicializan los valores, no hay streak, no hay pregunta esperando,
+        // ni turno.
         Map<String, Object> turnInfo = new HashMap<>();
         turnInfo.put("currentStreak", 0);
         turnInfo.put("questionPending", false);
         turnInfo.put("currentTurn", 0);
         initialState.put("turnInfo", turnInfo);
 
-        // Convertimos a JSON
+        // Convertimos a JSON el estado interno y lo insertamos en el game
         ObjectMapper objectMapper = new ObjectMapper();
         String jsonState = objectMapper.writeValueAsString(initialState);
-
         game.setInternalState(jsonState);
 
+        // Persistimos el nuevo game
         entityManager.persist(game);
         entityManager.flush();
 
+        // Redirigimos al lobby para la nueva partida
         return "redirect:/game/lobby/" + game.getCode();
     }
 
     // Carga la partida por código y renderiza multi_game.html
     @GetMapping("/multi_game/{code}")
     public String multiGame(@PathVariable String code, Model model, HttpSession session) {
+        // encuentra la partida
         Game game;
         game = entityManager.createNamedQuery("Game.byCode", Game.class)
                 .setParameter("code", code)
                 .getSingleResult();
+
+        // si la partida no existe envía al usuario al inicio
         if (game == null)
             return "redirect:/";
 
+        // si la partida existe pero no está empezada enviamos al usuario al lobby
+        if (("WAITING").equalsIgnoreCase(game.getGameState().trim())) {
+            return "redirect:/game/lobby/" + code;
+        }
+        // si la partida existe pero ya acabó enviamos al usuario al inicio
+        if (("FINISHED").equalsIgnoreCase(game.getGameState().trim())) {
+            return "redirect:/" + code;
+        }
+
+        // obtenemos el usuario logueado
         User currentUser = (User) session.getAttribute("u");
         if (currentUser == null) {
             return "redirect:/login";
         }
 
-        // no se carga la vista de partida si esta no está empezada por el host
-        if (!("STARTED").equalsIgnoreCase(game.getGameState().trim())) {
-            return "redirect:/game/lobby/" + code;
-        }
-
+        // obtenemos las categorías de la partida
         List<Map<String, String>> categories = game.getCategories()
                 .stream()
                 .map(c -> Map.of(
@@ -269,8 +278,8 @@ public class GameController {
                         "label", c.getLabel()))
                 .toList();
 
+        // insertamos los valores en el modelo y devolvemos el html de multi_game
         model.addAttribute("categories", categories);
-
         model.addAttribute("user", currentUser);
         model.addAttribute("game", game);
         session.setAttribute("topics", game.getCode());
@@ -278,10 +287,11 @@ public class GameController {
         return "multi_game";
     }
 
+    // Devuelve el estado interno de la partida
     @GetMapping("/{code}/state")
     @ResponseBody
     public Map<String, Object> getState(@PathVariable String code) throws Exception {
-
+        // toma el juego
         Game game = entityManager.createNamedQuery("Game.byCode", Game.class)
                 .setParameter("code", code)
                 .getSingleResult();
@@ -289,6 +299,7 @@ public class GameController {
         ObjectMapper mapper = new ObjectMapper();
         Map<String, Object> state = mapper.readValue(game.getInternalState(), Map.class);
 
+        // devuelve su estado
         return state;
     }
 
@@ -301,12 +312,13 @@ public class GameController {
             @PathVariable Long userId,
             HttpSession session) throws JsonProcessingException {
 
+        // obtiene al usuario que hace la petición
         User u = (User) session.getAttribute("u");
         if (u == null) {
             return Map.of("status", "error", "message", "Usuario no autenticado");
         }
 
-        // Recuperar el juego
+        // recupera el juego
         Game game;
         try {
             game = entityManager.createNamedQuery("Game.byCode", Game.class)
@@ -344,10 +356,10 @@ public class GameController {
         Map<Integer, Number> turnOrderRaw = (Map<Integer, Number>) state.get("turnOrder");
 
         if (turnOrderRaw != null) {
-            // 1. eliminar jugador del turnOrder
+            // elimina jugador del turnOrder
             turnOrderRaw.entrySet().removeIf(e -> e.getValue().longValue() == userId);
 
-            // 2. reindexar y convertir todo a Long
+            // reindexar y convertir todo el turnOrder
             Map<Integer, Long> newTurnOrder = new LinkedHashMap<>();
             int index = 1;
             for (Number n : turnOrderRaw.values()) {
@@ -360,7 +372,7 @@ public class GameController {
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> players = (List<Map<String, Object>>) state.get("players");
 
-        // Eliminar al jugador
+        // Elimina al jugador
         boolean removed = players.removeIf(p -> {
             Object idObj = p.get("id");
             if (idObj instanceof Number) {
@@ -368,10 +380,7 @@ public class GameController {
             }
             return false;
         });
-
-        if (!removed)
-
-        {
+        if (!removed) {
             return Map.of("status", "error", "message", "Jugador no encontrado en la partida");
         }
 
@@ -414,11 +423,12 @@ public class GameController {
         return Map.of("status", "kicked", "kickedPlayer", userId, "players", players);
     }
 
+    // El jugador se marcha de la partida y emite un "update" por WebSocket
     @PostMapping("/{code}/leave")
     @ResponseBody
     @Transactional
     public Map<String, Object> leave(@PathVariable String code, HttpSession session) throws JsonProcessingException {
-
+        // tomamos al usuario
         User uSession = (User) session.getAttribute("u");
         if (uSession == null) {
             throw new RuntimeException("No user in session");
@@ -445,15 +455,12 @@ public class GameController {
                 new ArrayList<>());
 
         boolean isHost = u.getId() == game.getHost().getId();
-
         boolean willBeLastPlayer = (players.size() - 1) <= 1;
-
         boolean isStarted = "STARTED".equalsIgnoreCase(game.getGameState());
-
         boolean isFinished = "FINISHED".equalsIgnoreCase(game.getGameState().trim());
 
         if (isHost || (isStarted && willBeLastPlayer)) {
-            // Host se va
+            // Host se va o solo quedará una persona
             if (!isFinished) {
                 // Expulsar a todos y eliminar el juego
                 Map<String, Object> wsMsg = new HashMap<>();
@@ -468,9 +475,8 @@ public class GameController {
                 return Map.of("status", "left");
             }
         } else {
-            // Jugador normal se retira
+            // Jugador se retira sin ser host ni el penúltimo
             boolean removed = players.removeIf(p -> u.getId() == (((Number) p.get("id")).longValue()));
-
             Map<Integer, Long> turnOrder = (Map<Integer, Long>) state.get("turnOrder");
 
             if (turnOrder != null) {
@@ -531,24 +537,27 @@ public class GameController {
                 "gameState", state);
     }
 
+    // Maneja el lanzamiento del dado
     @PostMapping("/{code}/roll-dice")
     @ResponseBody
     @Transactional
     public Map<String, Object> rollDice(@PathVariable String code, HttpSession session)
             throws JsonProcessingException {
 
+        // obtenemos al usuario actual y la partida
         User u = (User) session.getAttribute("u");
         if (u == null)
             return Map.of("status", "error", "message", "No autenticado");
-
         Game game = entityManager.createNamedQuery("Game.byCode", Game.class)
                 .setParameter("code", code)
                 .getSingleResult();
 
+        // si la partida no ha comenzado no hacer nada
         if (!"STARTED".equalsIgnoreCase(game.getGameState())) {
             return Map.of("status", "error", "message", "La partida no está activa");
         }
 
+        // obtenemos el internalState de la partida
         ObjectMapper mapper = new ObjectMapper();
         Map<String, Object> state = mapper.readValue(game.getInternalState(), new TypeReference<Map<String, Object>>() {
         });
@@ -557,11 +566,12 @@ public class GameController {
         List<Map<String, Object>> players = (List<Map<String, Object>>) state.get("players");
         @SuppressWarnings("unchecked")
         Map<String, Object> turnInfo = (Map<String, Object>) state.get("turnInfo");
-
+        // si ya hay otra pregunta pendiente no hacemos anda
         if ("QUESTION_PENDING".equalsIgnoreCase((String) turnInfo.get("subState"))) {
             return Map.of("status", "error", "message", "Hay una pregunta pendiente");
         }
 
+        // solo puede tirar el dado el jugador que tiene el turno actualmente
         long currentTurnPlayerId = ((Number) state.get("currentTurnPlayerId")).longValue();
         if (u.getId() != currentTurnPlayerId) {
             return Map.of("status", "error", "message", "No es tu turno");
@@ -577,6 +587,7 @@ public class GameController {
                 int currentPos = ((Number) p.getOrDefault("boardPosition", 0)).intValue();
                 targetPos = currentPos + diceRoll;
                 if (targetPos >= 65) {
+                    // si un jugador llega a la meta se acaba la partida
                     targetPos = 65;
                     manejarFinDePartida(game, state, players);
                 }
@@ -585,6 +596,7 @@ public class GameController {
             }
         }
 
+        // actualizamos las posiciones respecto a los otros jugadores en la partida
         if (players != null && !players.isEmpty()) {
             // Creamos una copia de la lista para ordenarla sin romper el orden original de
             // almacenamiento
@@ -620,31 +632,32 @@ public class GameController {
         int currentStreak = ((Number) turnInfo.getOrDefault("currentStreak", 1)).intValue();
         QuestionDataPublicDTO publicQuestion = null;
 
+        // si la partida no ha terminado y todavía no se han alcanzado el límte
+        // de turnos, pedimos la pregunta a la API
         if (!"FINISHED".equalsIgnoreCase(game.getGameState()) && currentStreak < 3 && targetPos >= 1
                 && targetPos <= 64) {
 
+            //recuperamos las categorías y construimos la url en base a la categoría de la casilla y la dificultad de la partida
             Set<TriviaCategory> categories = game.getCategories();
             String categoryUrlParam = "";
-
             if (categories != null && !categories.isEmpty()) {
                 List<TriviaCategory> categoriesList = new ArrayList<>(categories);
                 int categoryIndex = (targetPos - 1) % categoriesList.size();
                 TriviaCategory chosenCategory = categoriesList.get(categoryIndex);
                 categoryUrlParam = "&category=" + chosenCategory.getId();
-
-                System.out.println("CASILLA: " + targetPos + " -> INDEX ELEGIDO: " + categoryIndex + " -> CATEGORIA: "
-                        + chosenCategory.getLabel());
             }
-
             String url = "https://opentdb.com/api.php?amount=1" + categoryUrlParam + "&difficulty="
                     + game.getDifficulty().toLowerCase();
 
             try {
+                //hacemos la petición a la API
                 RestTemplate rest = new RestTemplate();
                 Map<String, Object> apiRes = rest.getForObject(url, Map.class);
                 List<Map<String, Object>> results = (List<Map<String, Object>>) apiRes.get("results");
 
                 if (results != null && !results.isEmpty()) {
+                    //como en la partida singleplayer creamos dos arrays, uno con la información privada de la pregunta
+                    //y otro con la información para el cliente. El primero lo guardamos en session y el segundo lo devolvemos.
                     Map<String, Object> q = results.get(0);
                     String correct = (String) q.get("correct_answer");
 
@@ -656,18 +669,21 @@ public class GameController {
                     QuestionDataPrivateDTO privateQuestion = new QuestionDataPrivateDTO(0, (String) q.get("question"),
                             answers, correct);
                     session.setAttribute("activeMultiplayerQuestion", privateQuestion);
-
                     publicQuestion = new QuestionDataPublicDTO(0, (String) q.get("question"), answers);
                     turnInfo.put("subState", "QUESTION_PENDING");
                 }
             } catch (Exception ex) {
                 System.out.println("Error al invocar API externa: " + ex.getMessage());
+                //si la api da error subimos el currentstreak para que sea el turno del siguiente jugador
+                //esto se podría manejar mejor haciendo que se tenga que volver a tirar el dado, pero hemos decidido
+                //mantenerlo para poder hacer partidas enteras sin conexión a internet (como durante el examen)
                 currentStreak = 3;
             }
         } else if (currentStreak >= 3) {
             turnInfo.put("subState", "NORMAL");
         }
 
+        //si no quedan preguntas pendientes y la partida no ha acabado, pasamos al siguiente turno
         if (!"QUESTION_PENDING".equalsIgnoreCase((String) turnInfo.get("subState"))
                 && !"FINISHED".equalsIgnoreCase(game.getGameState())) {
             avanzarSiguienteTurnoEstructural(state);
@@ -682,7 +698,6 @@ public class GameController {
             // Inicializamos banderas por si recargan a mitad del proceso
             questionMap.put("answered", false);
             questionMap.put("selectedAnswer", "");
-
             state.put("activeQuestion", questionMap);
         }
 
@@ -690,10 +705,6 @@ public class GameController {
         // guardamos
         game.setInternalState(mapper.writeValueAsString(state));
         entityManager.merge(game);
-
-        // Eliminamos el bloque duplicado 'if (publicQuestion != null)' que tenías aquí
-        // abajo
-        // porque ya está inyectado perfectamente en el objeto state que viaja por WS
 
         messagingTemplate.convertAndSend("/topic/" + code,
                 Map.of("type", "question", "players", players, "gameState", state));
@@ -724,6 +735,7 @@ public class GameController {
         state.remove("activeQuestion");
     }
 
+    // Helper interno para manejar el fin de la partida
     private void manejarFinDePartida(Game game, Map<String, Object> state, List<Map<String, Object>> players)
             throws JsonProcessingException {
 
@@ -777,6 +789,37 @@ public class GameController {
 
             // 3. Ordenamos la lista de jugadores por su posición final antes de mandarla al
             // frontend
+            // actualizamos las posiciones respecto a los otros jugadores en la partida
+            if (players != null && !players.isEmpty()) {
+                // Creamos una copia de la lista para ordenarla sin romper el orden original de
+                // almacenamiento
+                List<Map<String, Object>> sortedPlayers = new ArrayList<>(players);
+
+                // Ordenamos de mayor a menor según su 'boardPosition'
+                sortedPlayers.sort((p1, p2) -> {
+                    int pos1 = ((Number) p1.getOrDefault("boardPosition", 0)).intValue();
+                    int pos2 = ((Number) p2.getOrDefault("boardPosition", 0)).intValue();
+                    return Integer.compare(pos2, pos1);
+                });
+
+                // Asignamos las posiciones de la carrera
+                int currentRank = 1;
+                int lastPos = -1;
+
+                for (int i = 0; i < sortedPlayers.size(); i++) {
+                    Map<String, Object> p = sortedPlayers.get(i);
+                    int pos = ((Number) p.getOrDefault("boardPosition", 0)).intValue();
+
+                    // Si la posición de este jugador es menor que la del anterior, el ranking
+                    // avanza
+                    if (i > 0 && pos < lastPos) {
+                        currentRank = i + 1;
+                    }
+
+                    p.put("gamePosition", currentRank);
+                    lastPos = pos;
+                }
+            }
             players.sort((p1, p2) -> {
                 int r1 = ((Number) p1.getOrDefault("gamePosition", 4)).intValue();
                 int r2 = ((Number) p2.getOrDefault("gamePosition", 4)).intValue();
@@ -794,6 +837,7 @@ public class GameController {
                 Map.of("type", "game_finished", "podium", players));
     }
 
+    // Maneja la selección de una respuesta para determinar si es correcta o no
     @PostMapping("/{code}/submit-answer")
     @ResponseBody
     @Transactional
@@ -801,16 +845,15 @@ public class GameController {
             @RequestBody Map<String, String> payload,
             HttpSession session) throws JsonProcessingException {
 
-        // 1. Validar autenticación del usuario
+        // Obtenemos el usuario
         User u = (User) session.getAttribute("u");
         if (u == null)
             return Map.of("status", "error", "message", "No autenticado");
 
-        // 2. Recuperar la partida de la Base de Datos
+        // Tomamos la partida de la base de datos
         Game game = entityManager.createNamedQuery("Game.byCode", Game.class)
                 .setParameter("code", code)
                 .getSingleResult();
-
         ObjectMapper mapper = new ObjectMapper();
         Map<String, Object> state = mapper.readValue(game.getInternalState(), new TypeReference<Map<String, Object>>() {
         });
@@ -818,25 +861,23 @@ public class GameController {
         @SuppressWarnings("unchecked")
         Map<String, Object> turnInfo = (Map<String, Object>) state.get("turnInfo");
 
-        // 3. Validar si el juego realmente espera una respuesta
+        // Comprobamos que el juego esté esperando una respuesta
         if (!"QUESTION_PENDING".equalsIgnoreCase((String) turnInfo.get("subState"))) {
             return Map.of("status", "error", "message", "No hay ninguna pregunta activa");
         }
 
-        // 4. Validar que quien responde sea el dueño legítimo del turno
+        // Comprobar que la respuesta ha sido dada por el dueño del turno
         long currentTurnPlayerId = ((Number) state.get("currentTurnPlayerId")).longValue();
         if (u.getId() != currentTurnPlayerId) {
             return Map.of("status", "error", "message", "No es tu turno de responder");
         }
 
-        // 5. SE GESTIONA CON DTO PRIVADO EN SESIÓN
+        // Comparamos la respuesta recibida con la información privada de la pregunta
         QuestionDataPrivateDTO privateQuestion = (QuestionDataPrivateDTO) session
                 .getAttribute("activeMultiplayerQuestion");
         if (privateQuestion == null) {
             return Map.of("status", "error", "message", "No se encontró la pregunta en tu sesión");
         }
-
-        // 6. Comprobación ciega y segura de la respuesta
         String clientAnswer = payload.get("answer");
         String correctAnswer = privateQuestion.getCorrectAnswer();
         boolean isCorrect = correctAnswer.equals(clientAnswer);
@@ -847,7 +888,7 @@ public class GameController {
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> players = (List<Map<String, Object>>) state.get("players");
 
-        // 1. Recuperamos el mapa de la pregunta que guardamos en rollDice
+        // Recuperamos el mapa de la pregunta que guardamos en rollDice e incluimos la nueva información relevante
         @SuppressWarnings("unchecked")
         Map<String, Object> activeQuestion = (Map<String, Object>) state.get("activeQuestion");
 
@@ -857,9 +898,8 @@ public class GameController {
             activeQuestion.put("correctAnswer", correctAnswer);
         }
 
-        // 2. Control de racha, puntos y cambio de estado
+        // Control de racha, puntos y cambio de estado
         int currentStreak = ((Number) turnInfo.getOrDefault("currentStreak", 1)).intValue();
-
         if (isCorrect) {
             // Acierto: Sumamos puntos
             for (Map<String, Object> p : players) {
@@ -869,15 +909,12 @@ public class GameController {
                     break;
                 }
             }
-
             // Aumentamos racha
             currentStreak++;
             turnInfo.put("currentStreak", currentStreak);
-
             if (currentStreak >= 3) {
                 turnInfo.put("subState", "NORMAL");
             }
-
         } else {
             // Fallo: Rompemos racha y el subState vuelve a NORMAL para obligar a cambiar el
             // turno
@@ -885,17 +922,18 @@ public class GameController {
             turnInfo.put("subState", "NORMAL");
         }
 
-        // 3. Guardamos el estado modificado en la BD
+        // Guardamos el estado interno en la base de datos
         game.setInternalState(mapper.writeValueAsString(state));
         entityManager.merge(game);
 
-        // 4. Notificamos por WebSocket (el modal mostrará Correcto/Incorrecto)
+        // Informamos por websocket de un "update" (re-renderización del juego)
         messagingTemplate.convertAndSend("/topic/" + code,
                 Map.of("type", "update", "players", players, "gameState", state));
 
         return Map.of("status", "success", "correct", isCorrect);
     }
 
+    // Maneja el cerrado del modal de una pregunta
     @PostMapping("/{code}/close-question-modal")
     @ResponseBody
     @Transactional
@@ -914,7 +952,7 @@ public class GameController {
         @SuppressWarnings("unchecked")
         Map<String, Object> turnInfo = (Map<String, Object>) state.get("turnInfo");
 
-        // 1. Si el subState es NORMAL (porque falló o completó racha de 3), avanzamos
+        // Si el subState es NORMAL (porque falló o completó racha de 3), avanzamos
         // el turno
         if ("NORMAL".equalsIgnoreCase((String) turnInfo.get("subState"))
                 && !"FINISHED".equalsIgnoreCase(game.getGameState())) {
@@ -927,26 +965,25 @@ public class GameController {
             turnInfo.put("subState", "NORMAL");
         }
 
-        // 2. Limpieza absoluta: quitamos la pregunta del JSON de la BD y de la sesión
+        // Quitamos la pregunta del JSON de la BD y de la sesión
         // HTTP
         state.remove("activeQuestion");
         session.removeAttribute("activeMultiplayerQuestion");
 
-        // 3. [CRUCIAL]: Guardar los cambios estructurales reales en la Base de Datos
         game.setInternalState(mapper.writeValueAsString(state));
         entityManager.merge(game);
 
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> players = (List<Map<String, Object>>) state.get("players");
 
-        // 4. Avisamos a todos los clientes. Al recibir 'activeQuestion' como null, el
-        // JS cerrará el modal
+        //Enviamos mensaje websocket a todos los jugadores para que el modal se cierre
         messagingTemplate.convertAndSend("/topic/" + code,
                 Map.of("type", "update", "players", players, "gameState", state));
 
         return Map.of("status", "success");
     }
 
+    
     /*
      * ==============
      * LOBBY
@@ -1114,7 +1151,6 @@ public class GameController {
     // Emite "game_start" por WebSocket
     // con la URL de redirección a la pantalla de juego
     private final Random random = new Random();
-
     @PostMapping("/{code}/start")
     @ResponseBody
     @Transactional
@@ -1204,14 +1240,6 @@ public class GameController {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Posts a message to a game.
-     * 
-     * @param code of target game (source user is from ID)
-     * @param o    JSON-ized message, similar to {"message": "text goes here"}
-     * @throws JsonProcessingException
-     */
-
     // Guarda un mensaje en BD y lo emite por WebSocket a /topic/{code}
     @PostMapping("/{code}/msg")
     @ResponseBody
@@ -1267,8 +1295,8 @@ public class GameController {
         return "{\"result\": \"message sent.\"}";
     }
 
-    // genera códigos de partida solo con caracteres alfanuméricos
-    public static String generateGameCode(int length) {
+    // helper que genera códigos de partida solo con caracteres alfanuméricos
+    private static String generateGameCode(int length) {
         final String CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
         SecureRandom secureRandom = new SecureRandom();
         StringBuilder sb = new StringBuilder(length);

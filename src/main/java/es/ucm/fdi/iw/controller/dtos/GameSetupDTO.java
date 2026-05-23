@@ -1,19 +1,9 @@
 package es.ucm.fdi.iw.controller.dtos;
 
-/**
-* DATA TRANSFER OBJECTS 
+import lombok.Data;
 
-* Objetos simples (sin lógica ni JPA) que sirven para transferir datos
-* entre el frontend y el backend de forma estructurada.
-*
-* Recoge los parámetros del formulario de configuración de partida
-* Campos: category (String), difficulty (String), questionCount (int)
-* Usado en: RootController.startSingleGame() y GameController.startGame()
-* como @ModelAttribute (formulario HTML)
-*/
-
-// THIS OBJECT IS USED AS A WAY FOR THE CONTROLLER TO HANDLE THE SETTINGS FOR A NEW GAME
-
+// OBJETO PARA MANEJAR LA CREACION DE UN JUEGO SINGLEPLAYER
+@Data
 public class GameSetupDTO {
 
     private String category;      

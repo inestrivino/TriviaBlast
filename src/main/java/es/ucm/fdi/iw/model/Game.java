@@ -15,6 +15,7 @@ import lombok.Data;
  * ENTIDAD PARTIDA
  * 
  * Representa una partida multijugador
+ * (las partidas singleplayer no necesitan guardarse en la bd)
  * Se mapea a la tabla "Game"
  */
 
@@ -26,7 +27,6 @@ import lombok.Data;
 @Entity
 @Data
 public class Game {
-
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "game_gen")
     @SequenceGenerator(name = "game_gen", sequenceName = "game_seq", allocationSize = 1)
@@ -60,21 +60,4 @@ public class Game {
     @OneToMany(mappedBy = "game", cascade = CascadeType.ALL, orphanRemoval = true) // if game is deleted then messages
                                                                                    // are deleted too
     private List<Message> messages = new ArrayList<>();
-
-    private static final String CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    private static final int CODE_LENGTH = 6;
-    private static final java.security.SecureRandom RANDOM = new java.security.SecureRandom();
-
-    // genera automáticamente el código único de 6 caracteres alfanuméricos justo
-    // antes de persistir en BD
-    @PrePersist
-    public void generateCode() {
-        if (this.code == null) {
-            StringBuilder sb = new StringBuilder(CODE_LENGTH);
-            for (int i = 0; i < CODE_LENGTH; i++) {
-                sb.append(CHARS.charAt(RANDOM.nextInt(CHARS.length())));
-            }
-            this.code = sb.toString();
-        }
-    }
 }

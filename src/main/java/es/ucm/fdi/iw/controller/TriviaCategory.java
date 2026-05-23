@@ -3,7 +3,12 @@ package es.ucm.fdi.iw.controller;
 import java.util.Arrays;
 import java.util.List;
 
+//ENUMERADO PARA GESTIONAR LAS CATEGORÍAS DE TRIVIA
+//SE USA SOBRETODO PARA POBLAR DINÁMICAMENTE LOS "GAME SETUP"
+//Y COMO REFERENCIA PARA EL MULTI_GAME, ETC
+
 public enum TriviaCategory {
+    //el id es el de llamada para la API, el label es el nombre legible
     GENERAL_KNOWLEDGE(9, "General Knowledge"),
     ENTERTAINMENT_BOOKS(10, "Entertainment: Books"),
     ENTERTAINMENT_FILM(11, "Entertainment: Film"),

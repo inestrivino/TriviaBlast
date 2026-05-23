@@ -57,7 +57,7 @@ public class User implements Transferable<User.Transfer> {
 
     private String avatar = "default-pic.png";
 
-    // cuenta desactivada (no puede hacer login)
+    // cuenta desactivada (no puede hacer login ni se muestra en la scoreboard para usuarios normales)
     private boolean enabled = true;
 
     private String roles = "USER";

@@ -1,6 +1,5 @@
 package es.ucm.fdi.iw.model;
 
-import java.net.http.WebSocket;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
@@ -11,12 +10,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.NamedQueries;
-import jakarta.persistence.NamedQuery;
 import jakarta.persistence.SequenceGenerator;
-
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 import lombok.Data;
 import lombok.Getter;
@@ -33,15 +27,9 @@ import lombok.AllArgsConstructor;
 * (cascade = CascadeType.ALL, orphanRemoval = true en Game.messages).
 */
 
-/**
- * A message that users can send each other.
- *
- */
 @Entity
 @Data
 public class Message implements Transferable<Message.Transfer> {
-
-	private static Logger log = LogManager.getLogger(Message.class);
 
 	/*
 	 * SCHEMA:
@@ -57,7 +45,6 @@ public class Message implements Transferable<Message.Transfer> {
 	@GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "gen")
 	@SequenceGenerator(name = "gen", sequenceName = "gen")
 	private long id;
-
 	// usuario que envió el mensaje (ManyToOne → User)
 	@ManyToOne
 	private User sender;
@@ -76,12 +63,6 @@ public class Message implements Transferable<Message.Transfer> {
 	// si true, solo visible para admins (mensajes del sistema)
 	@Column(nullable = false)
 	private boolean adminOnly = false; // if true, the message is addressed to the admins of the game
-
-	/**
-	 * Objeto para persistir a/de JSON
-	 * 
-	 * @author mfreire
-	 */
 
 	// Clase interna Transfer: Objeto plano (sin relaciones JPA) que se serializa a JSON para
 	// enviarse por WebSocket o como respuesta de la API

@@ -34,10 +34,10 @@
 
     <main class="flex-shrink-0">
         <div class="container">
-            <h1 class="mt-5">Administración</h1>
+            <h1 class="mt-5">Administration</h1>
         </div>
         <div class="container mt-4">
-            <h2>Usuarios</h2>
+            <h2>Users</h2>
             <div class="table-responsive">
                 <table class="table table-striped align-middle">
                     <thead>
@@ -46,9 +46,9 @@
                             <th>Username</th>
                             <th>Email</th>
                             <th>Roles</th>
-                            <th>Puntos</th>
-                            <th>Estado Actual</th>
-                            <th>Acciones</th>
+                            <th>Score</th>
+                            <th>Current state</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -59,8 +59,7 @@
                             <td th:text="${user.roles}">USER</td>
                             <td th:text="${user.totalPoints}">0</td>
 
-                            <!-- Estado visual dinámico -->
-                            <td class="status-text fw-bold" th:text="${user.enabled} ? 'Visible' : 'Oculto'"
+                            <td class="status-text fw-bold" th:text="${user.enabled} ? 'Visible' : 'Hidden'"
                                 th:classappend="${user.enabled} ? 'text-success' : 'text-danger'">
                                 Visible
                             </td>
@@ -77,23 +76,22 @@
             </div>
         </div>
 
-        <!-- CENTRO DE CONTROL DE ALERTAS WEBSOCKET (@admin) -->
+        <!-- CENTRO DE CONTROL DE ALERTAS WEBSOCKET -->
         <div class="container mt-5">
             <div class="card border-danger shadow-sm mb-4">
                 <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0"><i class="bi bi-shield-fill-exclamation me-2"></i>Centro de Control: Alertas de
-                        Moderación (@admin / Reportes)</h5>
-                    <span id="alert-counter" class="badge rounded-pill bg-white text-danger">0 nuevas</span>
+                    <h5 class="mb-0"><i class="bi bi-shield-fill-exclamation me-2"></i>Moderation alerts (@admin / reports)</h5>
+                    <span id="alert-counter" class="badge rounded-pill bg-white text-danger">0 new</span>
                 </div>
                 <div class="card-body p-0">
                     <div id="live-alerts-panel" class="list-group list-group-flush"
                         style="max-height: 300px; overflow-y: auto;">
 
-                        <!-- Mensaje por defecto: SOLO se muestra si la lista de alertas viene vacía de la BD -->
+                        <!-- Mensaje por defecto: solo se muestra si la lista de alertas viene vacía de la BD -->
                         <div id="no-alerts-msg" class="list-group-item text-center text-muted py-4"
                             th:if="${#lists.isEmpty(alertas)}">
                             <i class="bi bi-check-circle-fill text-success fs-4 d-block mb-2"></i>
-                            No hay alertas de moderación pendientes de revisar en este momento.
+                            There are no moderation alerts pending revision at this moment.
                         </div>
 
                         <!-- Bucle para pintar las alertas almacenadas en la base de datos al recargar -->
@@ -103,7 +101,6 @@
                                 <span class="badge bg-danger me-2">Denuncia</span>
                                 <span th:text="${alerta.text}">El usuario X reportó a Y...</span>
                             </div>
-                            <!-- Si tienes la fecha formateada en un transfer o un método, úsala, si no, pinta dateSent -->
                             <small class="text-muted"
                                 th:text="${#temporals.format(alerta.dateSent, 'HH:mm')}">14:32</small>
                         </div>
@@ -120,12 +117,9 @@
             <button id="refresh" class="btn btn-primary">Actualizar vía AJAX</button>
         </div>
     </main>
-    <script>
-        document.addEventListener("DOMContentLoaded", () => {
-            initAdminWebSocketAlerts();
-        });
-    </script>
+    <script th:src="@{/js/simple-datatables-10.js}"></script>
     <th:block th:replace="~{fragments/footer.html :: footer}" />
 </body>
+
 
 </html>

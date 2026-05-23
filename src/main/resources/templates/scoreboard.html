@@ -37,7 +37,7 @@
                                         <td th:text="${user.username}">Name</td>
                                         <td th:text="${user.totalPoints}">Points</td>
 
-                                        <!-- Columna exclusiva para Administradores (Ocultar/Mostrar) -->
+                                        <!-- Columna exclusiva para Administradores: Ocultar y mostrar usuarios -->
                                         <td sec:authorize="hasRole('ADMIN')">
                                             <button type="button" class="btn btn-sm toggle-btn"
                                                 th:classappend="${user.enabled} ? 'btn-outline-danger' : 'btn-success'"
@@ -46,7 +46,7 @@
                                             </button>
                                         </td>
 
-                                        <!-- Columna exclusiva para Usuarios normales (Banderita de Denuncia) -->
+                                        <!-- Columna exclusiva para Usuarios normales: Denunciar a otros usuarios -->
                                         <td sec:authorize="!hasRole('ADMIN')">
                                             <button th:if="${session.u.id != user.id}" type="button"
                                                 class="btn btn-link link-danger p-0 border-0 btn-report"

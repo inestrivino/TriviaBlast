@@ -7,7 +7,6 @@ import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -32,17 +31,9 @@ import jakarta.transaction.Transactional;
 * Ruta base: /admin/**
 */
 
-/**
- * Site administration.
- *
- * Access to this end-point is authenticated - see SecurityConfig
- */
 @Controller
 @RequestMapping("admin")
 public class AdminController {
-
-  @Autowired
-  private PasswordEncoder passwordEncoder;
 
   @Autowired
   private EntityManager entityManager;
@@ -56,15 +47,15 @@ public class AdminController {
 
   private static final Logger log = LogManager.getLogger(AdminController.class);
 
-  // Lista todos los usuarios de la BD y renderiza admin.html
+  // Lista todos los elementos necesarios de la BD y renderiza admin.html
   @GetMapping("/")
   public String index(Model model) {
-    // 1. Traer los usuarios
+    // Toma los usuarios de la BD con una query
     List<User> users = entityManager.createQuery(
         "SELECT u FROM User u ORDER BY u.totalPoints DESC", User.class).getResultList();
     model.addAttribute("users", users);
 
-    // 2. RECUPERAR LAS ALERTAS DE MODERACIÓN EXCLUSIVAS
+    // Toma las alertas de moderación
     List<Message> alertasModeracion = entityManager.createQuery(
         "SELECT m FROM Message m WHERE m.adminOnly = true ORDER BY m.dateSent DESC", Message.class)
         .setMaxResults(10) // Limitamos a las 10 más recientes
@@ -75,17 +66,13 @@ public class AdminController {
     return "admin";
   }
 
-  /*
-   * Cambia el campo enabled del usuario (true/false)
-   * Un usuario oculto no aparece en el scoreboard para otros usuarios
-   * Devuelve JSON con el nuevo estado. Llamado desde triviablast.js
-   * mediante fetch() (sin recargar la página)
-   */
+  // Cambia el atributo 'enabled' de un usuario cuyo id recibe
   @PostMapping("/toggleView/{userId}")
   @Transactional
   @ResponseBody
   public Map<String, Object> toggleVisibility(@PathVariable long userId) {
     try {
+      // toma al usuario por su id
       User user = entityManager.find(User.class, userId);
 
       if (user == null) {
@@ -93,6 +80,7 @@ public class AdminController {
         return Map.of("error", "UserNotFound");
       }
 
+      // se alterna su valor 'enabled'
       user.setEnabled(!user.isEnabled());
       entityManager.merge(user);
 
@@ -108,9 +96,6 @@ public class AdminController {
     }
   }
 
-  /**
-   * Returns JSON with all received messages
-   */
   // Devuelve los últimos 5 mensajes del sistema como JSON
   @GetMapping(path = "all-messages", produces = "application/json")
   @Transactional // para no recibir resultados inconsistentes

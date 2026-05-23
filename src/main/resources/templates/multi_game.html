@@ -169,12 +169,13 @@
         </div>
     </div>
 
-    <script>
+    <!--CODIGO PARA EL CHAT PANEL DE CHAT (ABRIR Y CERRAR)-->
+    <script th:inline="javascript">
+        //código para manejar la apertura y cierre del chat
         let chatOpen = false;
         let userTouchedChat = false;
 
         function setChat(open) {
-
             const panel = document.getElementById("chatPanel");
             const tab = document.getElementById("chatTab");
             const icon = document.getElementById("chatIcon");
@@ -215,17 +216,16 @@
         });
     </script>
 
-    <!-- BOARD SCRIPT -->
-
+    <!-- CODIGO PARA CARGAR TODOS LOS JS QUE SE USAN (YA QUE AQUI NO HAY FOOTER) -->
     <script th:src="@{/js/stomp.js}" src="js/stomp.js"></script>
     <script th:src="@{/js/iw.js}" src="js/iw.js"></script>
     <script th:src="@{/js/bootstrap.bundle-5.3.3.js}" src="/js/bootstrap.bundle-5.3.3.js"></script>
     <script th:src="@{/js/svg.min.js}" src="/js/svg.min.js"></script>
     <script th:src="@{/js/gameClient.js}"></script>
+    
+    <!-- CODIGO PARA ENVIAR DATOS IMPORTANTES AL GAMECLIENT Y CARGAR LOS JUGADORES Y MENSAJES -->
     <script th:inline="javascript">
-
         document.addEventListener("DOMContentLoaded", () => {
-
             GameClient.init({
                 gameCode: /*[[${game.code}]]*/ "",
                 currentUserId: /*[[${u.id}]]*/ 0,

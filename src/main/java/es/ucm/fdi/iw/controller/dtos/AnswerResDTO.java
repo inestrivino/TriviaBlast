@@ -3,17 +3,7 @@ package es.ucm.fdi.iw.controller.dtos;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
-/**
-* DATA TRANSFER OBJECTS 
-
-* Objetos simples (sin lógica ni JPA) que sirven para transferir datos
-* entre el frontend y el backend de forma estructurada.
-*
-* Devuelve el resultado de comprobar la respuesta
-* Campos: correct (boolean), correctAnswer (String)
-* Usado en: GameController.checkAnswer() como valor de retorno JSON
-*/
-
+//OBJETO PARA MANEJAR EL RESULTADO DE UNA RESPUESTA A PREGUNTA
 @Data
 @AllArgsConstructor
 public class AnswerResDTO {

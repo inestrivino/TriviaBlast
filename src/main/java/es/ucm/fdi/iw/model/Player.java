@@ -14,7 +14,6 @@ import lombok.Data;
 @Entity
 @Data
 public class Player {
-
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "player_gen")
     @SequenceGenerator(name = "player_gen", sequenceName = "player_seq", allocationSize = 1)
