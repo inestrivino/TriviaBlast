@@ -392,7 +392,9 @@ public class GameController {
             }
             return false;
         });
-        if (!removed) {
+        if (!removed)
+
+        {
             return Map.of("status", "error", "message", "Jugador no encontrado en la partida");
         }
 
@@ -592,7 +594,6 @@ public class GameController {
         // Tirar dado, mover jugador
         int diceRoll = random.nextInt(6) + 1;
         state.put("lastDiceRoll", diceRoll);
-
         int targetPos = 0;
         for (Map<String, Object> p : players) {
             if (((Number) p.get("id")).longValue() == currentTurnPlayerId) {
@@ -641,16 +642,13 @@ public class GameController {
         }
 
         // Control del Streak y Obtención de la Pregunta según Casilla
-        int currentStreak = ((Number) turnInfo.getOrDefault("currentStreak", 1)).intValue();
+        int currentStreak = ((Number) turnInfo.getOrDefault("currentStreak", 0)).intValue();
         QuestionDataPublicDTO publicQuestion = null;
 
-        // si la partida no ha terminado y todavía no se han alcanzado el límte
-        // de turnos, pedimos la pregunta a la API
+        // El streak máximo es de 3
         if (!"FINISHED".equalsIgnoreCase(game.getGameState()) && currentStreak < 3 && targetPos >= 1
                 && targetPos <= 64) {
 
-            // recuperamos las categorías y construimos la url en base a la categoría de la
-            // casilla y la dificultad de la partida
             Set<TriviaCategory> categories = game.getCategories();
             String categoryUrlParam = "";
             if (categories != null && !categories.isEmpty()) {
@@ -662,17 +660,19 @@ public class GameController {
             String url = "https://opentdb.com/api.php?amount=1" + categoryUrlParam + "&difficulty="
                     + game.getDifficulty().toLowerCase();
 
+            // forzamos una espera de 4 segundos para garantizar que no haya problemas con
+            // la API
             try {
-                // hacemos la petición a la API
+                Thread.sleep(4000);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+            }
+            try {
                 RestTemplate rest = new RestTemplate();
                 Map<String, Object> apiRes = rest.getForObject(url, Map.class);
                 List<Map<String, Object>> results = (List<Map<String, Object>>) apiRes.get("results");
 
                 if (results != null && !results.isEmpty()) {
-                    // como en la partida singleplayer creamos dos arrays, uno con la información
-                    // privada de la pregunta
-                    // y otro con la información para el cliente. El primero lo guardamos en session
-                    // y el segundo lo devolvemos.
                     Map<String, Object> q = results.get(0);
                     String correct = (String) q.get("correct_answer");
 
@@ -685,50 +685,53 @@ public class GameController {
                             answers, correct);
                     session.setAttribute("activeMultiplayerQuestion", privateQuestion);
                     publicQuestion = new QuestionDataPublicDTO(0, (String) q.get("question"), answers);
+
+                    // Marcamos que hay una pregunta obligatoria que responder
                     turnInfo.put("subState", "QUESTION_PENDING");
                 }
             } catch (Exception ex) {
                 System.out.println("Error al invocar API externa: " + ex.getMessage());
-                // si la api da error subimos el currentstreak para que sea el turno del
-                // siguiente jugador
-                // esto se podría manejar mejor haciendo que se tenga que volver a tirar el
-                // dado, pero hemos decidido
-                // mantenerlo para poder hacer partidas enteras sin conexión a internet (como
-                // durante el examen)
-                currentStreak = 3;
+                // Si la API falla, actuamos como si fuera la 3ª tirada (sin pregunta) para no
+                // bloquear el juego
+                turnInfo.put("subState", "NORMAL");
             }
-        } else if (currentStreak >= 3) {
+        } else {
+            // Entra aquí si ya lleva 2 aciertos (currentStreak >= 2) o es fin de partida.
+            // Esta es la tercera tirada. No ponemos QUESTION_PENDING.
             turnInfo.put("subState", "NORMAL");
+            // Limpiamos cualquier pregunta residual que pudiera haber quedado en el estado
+            state.remove("activeQuestion");
         }
 
-        // si no quedan preguntas pendientes y la partida no ha acabado, pasamos al
-        // siguiente turno
-        if (!"QUESTION_PENDING".equalsIgnoreCase((String) turnInfo.get("subState"))
+        // Si el subState es "NORMAL" significa que:
+        // A) Es su 3ª tirada (ya gastó sus 2 oportunidades de pregunta).
+        // B) La API falló.
+        // En ambos casos, el jugador ya se ha movido, así que
+        // cambiamos de turno ahora.
+        if ("NORMAL".equalsIgnoreCase((String) turnInfo.get("subState"))
                 && !"FINISHED".equalsIgnoreCase(game.getGameState())) {
             avanzarSiguienteTurnoEstructural(state);
         }
 
-        if (publicQuestion != null) {
-            // Guardamos un mapa con los datos públicos indispensables para reconstruir el
-            // modal
+        if (publicQuestion != null)
+
+        {
             Map<String, Object> questionMap = new HashMap<>();
             questionMap.put("question", publicQuestion.getQuestion());
             questionMap.put("answers", publicQuestion.getAnswers());
-            // Inicializamos banderas por si recargan a mitad del proceso
             questionMap.put("answered", false);
             questionMap.put("selectedAnswer", "");
             state.put("activeQuestion", questionMap);
         }
 
-        // Ahora que 'state' ya incluye 'activeQuestion', lo convertimos en JSON y lo
-        // guardamos
+        // Guardamos el estado y enviamos el WebSocket
         game.setInternalState(mapper.writeValueAsString(state));
         entityManager.merge(game);
 
         messagingTemplate.convertAndSend("/topic/" + code,
                 Map.of("type", "question", "players", players, "gameState", state));
 
-        return Map.of("status", "success");
+        return Map.of("status", "success", "result", diceRoll);
     }
 
     // Helper interno para mover el puntero de turnos
@@ -745,7 +748,7 @@ public class GameController {
             nextTurnIdx = 1;
         }
         turnInfo.put("currentTurn", nextTurnIdx);
-        turnInfo.put("currentStreak", 1);
+        turnInfo.put("currentStreak", 0);
 
         Object nextPlayerIdObj = turnOrder.get(String.valueOf(nextTurnIdx));
         state.put("currentTurnPlayerId", ((Number) nextPlayerIdObj).longValue());
@@ -919,7 +922,7 @@ public class GameController {
         }
 
         // Control de racha, puntos y cambio de estado
-        int currentStreak = ((Number) turnInfo.getOrDefault("currentStreak", 1)).intValue();
+        int currentStreak = ((Number) turnInfo.getOrDefault("currentStreak", 0)).intValue();
         if (isCorrect) {
             // Acierto: Sumamos puntos
             for (Map<String, Object> p : players) {
@@ -930,15 +933,15 @@ public class GameController {
                 }
             }
             // Aumentamos racha
-            currentStreak++;
-            turnInfo.put("currentStreak", currentStreak);
-            if (currentStreak >= 3) {
+            if (currentStreak >= 2) {
                 turnInfo.put("subState", "NORMAL");
             }
+            currentStreak++;
+            turnInfo.put("currentStreak", currentStreak);
         } else {
             // Fallo: Rompemos racha y el subState vuelve a NORMAL para obligar a cambiar el
             // turno
-            turnInfo.put("currentStreak", 1);
+            turnInfo.put("currentStreak", 0);
             turnInfo.put("subState", "NORMAL");
         }
 
@@ -1221,7 +1224,7 @@ public class GameController {
         // Inicializar turnInfo. Apunta a la clave de orden "1"
         Map<String, Object> turnInfo = new HashMap<>();
         turnInfo.put("currentTurn", 1);
-        turnInfo.put("currentStreak", 1);
+        turnInfo.put("currentStreak", 0);
         state.put("turnInfo", turnInfo);
 
         game.setInternalState(mapper.writeValueAsString(state));

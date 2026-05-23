@@ -10,6 +10,7 @@
 * - UI STATUS: Para mostrar mensajes de error o éxito en la interfaz
 * - FUNCIONES DEL JUEGO: Para gestionar la renderización de elementos como el tablero, el dado, o el podio, 
 *                        así como la renderización de preguntas y envío de respuestas.
+* - DADO: Funciones para manejar la llamada al backend cuando se hace click, la animación, y el 
 * - ACCIONES DEL CHAT: Funciones para gestionar la renderización de mensajes, y el envío de estos
 */
 "use strict";
@@ -36,6 +37,9 @@ window.GameClient = (() => {
     let currentGameState = {
         players: []
     };
+
+    //saber si el dado está girando o no
+    let isRolling = false;
 
     // -------------------------------
     // WEBSOCKET
@@ -86,11 +90,18 @@ window.GameClient = (() => {
                 if (data.players) renderPlayers(data.players);
                 if (data.gameState) currentGameState = data.gameState;
 
-                initBoard();
-                actualizarVisibilidadDado();
-
                 if (data.gameState && data.gameState.activeQuestion) {
-                    gestionarModalPregunta(data.gameState.activeQuestion);
+                    // El modal de pregunta solo se abre cuando el dado haya terminado su animación (en la pantalla del turno actual)
+                    function verificarDadoYMostrar() {
+                        if (!isRolling) {
+                            initBoard();
+                            actualizarVisibilidadDado();
+                            gestionarModalPregunta(data.gameState.activeQuestion);
+                        } else {
+                            setTimeout(verificarDadoYMostrar, 500);
+                        }
+                    }
+                    verificarDadoYMostrar();
                 }
                 break;
 
@@ -612,48 +623,6 @@ window.GameClient = (() => {
 
     }
 
-    // Variable de control para no duplicar escuchadores del botón dado
-    let dadoListenerAsignado = false;
-    //funcion para actualizar si el dado es visible (es el turno del jugador) o no
-    function actualizarVisibilidadDado() {
-        //obtenemos el botón del dado
-        const btnDado = document.getElementById("btn-tirar-dado");
-        if (!btnDado) return;
-
-        //obtenemos el estado del juego
-        const state = currentGameState || {};
-
-        //comprobamos si es el turno del jugador y mostramos el dado si es el turno del jugador
-        const miTurno = Number(state.currentTurnPlayerId) === Number(cfg.currentUserId);
-        if (miTurno) {
-            btnDado.classList.remove("d-none");
-        } else {
-            btnDado.classList.add("d-none");
-        }
-
-        if (!dadoListenerAsignado) {
-            //action listener para que cuando hacemos click en el botón se llame
-            //al backend con el método roll dice
-            btnDado.addEventListener("click", () => {
-                btnDado.disabled = true;
-
-                // Usamos la función global "go" (el cuerpo va vacío porque no enviamos payload)
-                go(`/game/${cfg.gameCode}/roll-dice`, "POST")
-                    .then(data => {
-                        btnDado.disabled = false;
-                        if (data.status === "error") {
-                            alert(data.message);
-                        }
-                    })
-                    .catch(err => {
-                        btnDado.disabled = false;
-                        console.error("Error al tirar el dado:", err);
-                    });
-            });
-            dadoListenerAsignado = true;
-        }
-    }
-
     // Instancia del modal de Bootstrap (solo puede haber uno a la vez)
     let bootstrapModalInstance = null;
 
@@ -831,6 +800,88 @@ window.GameClient = (() => {
     }
 
     // -------------------------------
+    // DADO ANIMADO
+    // -------------------------------
+    // Mapeo de las rotaciones exactas para que cada cara quede al frente
+    const faceRotations = {
+        1: { x: 0, y: 0 },
+        6: { x: 0, y: 180 },
+        2: { x: 0, y: -90 },
+        5: { x: 0, y: 90 },
+        3: { x: -90, y: 0 },
+        4: { x: 90, y: 0 }
+    };
+
+    function rollDice() {
+        if (isRolling) return;
+        isRolling = true;
+
+        const dice = document.getElementById('dice');
+
+        // Iniciamos una transición superlarga y lineal para que simule un giro infinito
+        // Girará constantemente a velocidad fija mientras el servidor esté "durmiendo" o cargando la API
+        dice.style.transition = 'transform 20s linear';
+        dice.style.transform = `rotateX(7200deg) rotateY(7200deg)`;
+
+        // 2. Lanzamos la petición al backend (tardará mínimo 4 segundos)
+        go(`/game/${cfg.gameCode}/roll-dice`, 'POST')
+            .then(data => {
+                if (data.status === 'error') {
+                    console.error("Error del servidor:", data.message);
+                    alert(data.message);
+                    dice.style.transition = 'transform 0.5s ease-out';
+                    dice.style.transform = `rotateX(0deg) rotateY(0deg)`;
+                    isRolling = false;
+                    return;
+                }
+
+                // El servidor ya ha respondido con el número definitivo
+                const result = data.result;
+                const rotation = faceRotations[result];
+
+                // Interrumpimos el giro infinito cambiando a una animación de desaceleración
+                dice.style.transition = 'transform 0.5s ease-out';
+
+                // Para que el frenado no sea brusco, sumamos vueltas extras partiendo de una base limpia
+                const finalX = rotation.x + 1080;
+                const finalY = rotation.y + 1080;
+
+                // Forzamos el renderizado de la parada en la cara correcta
+                dice.style.transform = `rotateX(${finalX}deg) rotateY(${finalY}deg)`;
+
+                // El dado se detiene por completo tras los 0.5s del frenado
+                setTimeout(() => {
+                    isRolling = false;
+                    console.log("El dado se detuvo definitivamente en el número: " + result);
+                }, 500);
+            })
+            .catch(error => {
+                console.error("Error de red al lanzar el dado:", error);
+                isRolling = false;
+                dice.style.transition = 'transform 0.5s ease-out';
+                dice.style.transform = `rotateX(0deg) rotateY(0deg)`;
+            });
+    }
+
+    //funcion para actualizar si el dado es visible (es el turno del jugador) o no
+    function actualizarVisibilidadDado() {
+        //obtenemos el botón del dado
+        const btnDado = document.getElementById("btn-tirar-dado");
+        if (!btnDado) return;
+
+        //obtenemos el estado del juego
+        const state = currentGameState || {};
+
+        //comprobamos si es el turno del jugador y mostramos el dado si es el turno del jugador
+        const miTurno = Number(state.currentTurnPlayerId) === Number(cfg.currentUserId);
+        if (miTurno) {
+            btnDado.classList.remove("d-none");
+        } else {
+            btnDado.classList.add("d-none");
+        }
+    }
+
+    // -------------------------------
     // ACCIONES DEL CHAT
     // -------------------------------
     //funcion para cargar mensajes de una partida
@@ -943,7 +994,8 @@ window.GameClient = (() => {
         loadPlayers,
         loadMessages,
         enviarMensajeChat,
-        agregarMensajeAlPanel
+        agregarMensajeAlPanel,
+        rollDice
     };
 
 })();

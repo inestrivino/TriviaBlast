@@ -102,22 +102,25 @@
                     Loading players...
                 </li>
             </ul>
+
+            <div class="text-center mt-3">
+                <!-- Contenedor del dado encima de tu tablero -->
+                <div class="dice-container d-none" id="btn-tirar-dado">
+                    <div id="dice" class="dice" onclick="GameClient.rollDice()">
+                        <div class="face front">1</div>
+                        <div class="face back">6</div>
+                        <div class="face right">2</div>
+                        <div class="face left">5</div>
+                        <div class="face top">3</div>
+                        <div class="face bottom">4</div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- BOARD CENTER -->
         <div class="flex-grow-1 d-flex justify-content-center align-items-center" id="contenedor-juego-activo">
             <div class="container-fluid d-flex flex-column justify-content-center min-vh-100 py-4">
-
-                <div class="text-center mt-3">
-                    <!-- El botón empieza oculto (d-none) por defecto; lo mostraremos solo a quien le toque -->
-                    <button id="btn-tirar-dado" class="btn btn-primary btn-lg fw-bold px-5 py-3 shadow d-none">
-                        Roll the dice!
-                    </button>
-
-                    <!-- Contenedor para ver el resultado de la última tirada -->
-                    <div id="dado-resultado" class="fs-4 fw-bold text-muted mt-2"></div>
-                </div>
-
                 <div class="d-flex flex-column align-items-center ms-5"
                     style="width: calc(100vw - 200px); max-width: 1200px;">
 
