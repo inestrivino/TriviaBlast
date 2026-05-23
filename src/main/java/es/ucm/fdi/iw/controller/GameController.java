@@ -99,10 +99,22 @@ public class GameController {
             url += "&difficulty=" + setup.getDifficulty().toLowerCase();
         }
 
-        // creamos una llamada a la api con el url y recibimos la respuesta
-        RestTemplate rest = new RestTemplate();
-        Map<String, Object> response = rest.getForObject(url, Map.class);
-        List<Map<String, Object>> results = (List<Map<String, Object>>) response.get("results");
+        List<Map<String, Object>> results = new ArrayList<>();
+        try {
+            // creamos una llamada a la api con el url y recibimos la respuesta
+            RestTemplate rest = new RestTemplate();
+            Map<String, Object> response = rest.getForObject(url, Map.class);
+            results = (List<Map<String, Object>>) response.get("results");
+
+            // Validamos también que la API no haya devuelto una lista vacía o nula
+            if (results == null || results.isEmpty()) {
+                return "redirect:/";
+            }
+        } catch (org.springframework.web.client.RestClientException e) {
+            // Si no hay conexión, el host no responde o da un error HTTP (4xx o 5xx),
+            // redirigimos al usuario a la raíz "/"
+            return "redirect:/";
+        }
 
         // arrays para las preguntas (versión completa para validación y versión
         // limitada para el cliente)
@@ -261,7 +273,7 @@ public class GameController {
         }
         // si la partida existe pero ya acabó enviamos al usuario al inicio
         if (("FINISHED").equalsIgnoreCase(game.getGameState().trim())) {
-            return "redirect:/" + code;
+            return "redirect:/";
         }
 
         // obtenemos el usuario logueado
@@ -637,7 +649,8 @@ public class GameController {
         if (!"FINISHED".equalsIgnoreCase(game.getGameState()) && currentStreak < 3 && targetPos >= 1
                 && targetPos <= 64) {
 
-            //recuperamos las categorías y construimos la url en base a la categoría de la casilla y la dificultad de la partida
+            // recuperamos las categorías y construimos la url en base a la categoría de la
+            // casilla y la dificultad de la partida
             Set<TriviaCategory> categories = game.getCategories();
             String categoryUrlParam = "";
             if (categories != null && !categories.isEmpty()) {
@@ -650,14 +663,16 @@ public class GameController {
                     + game.getDifficulty().toLowerCase();
 
             try {
-                //hacemos la petición a la API
+                // hacemos la petición a la API
                 RestTemplate rest = new RestTemplate();
                 Map<String, Object> apiRes = rest.getForObject(url, Map.class);
                 List<Map<String, Object>> results = (List<Map<String, Object>>) apiRes.get("results");
 
                 if (results != null && !results.isEmpty()) {
-                    //como en la partida singleplayer creamos dos arrays, uno con la información privada de la pregunta
-                    //y otro con la información para el cliente. El primero lo guardamos en session y el segundo lo devolvemos.
+                    // como en la partida singleplayer creamos dos arrays, uno con la información
+                    // privada de la pregunta
+                    // y otro con la información para el cliente. El primero lo guardamos en session
+                    // y el segundo lo devolvemos.
                     Map<String, Object> q = results.get(0);
                     String correct = (String) q.get("correct_answer");
 
@@ -674,16 +689,20 @@ public class GameController {
                 }
             } catch (Exception ex) {
                 System.out.println("Error al invocar API externa: " + ex.getMessage());
-                //si la api da error subimos el currentstreak para que sea el turno del siguiente jugador
-                //esto se podría manejar mejor haciendo que se tenga que volver a tirar el dado, pero hemos decidido
-                //mantenerlo para poder hacer partidas enteras sin conexión a internet (como durante el examen)
+                // si la api da error subimos el currentstreak para que sea el turno del
+                // siguiente jugador
+                // esto se podría manejar mejor haciendo que se tenga que volver a tirar el
+                // dado, pero hemos decidido
+                // mantenerlo para poder hacer partidas enteras sin conexión a internet (como
+                // durante el examen)
                 currentStreak = 3;
             }
         } else if (currentStreak >= 3) {
             turnInfo.put("subState", "NORMAL");
         }
 
-        //si no quedan preguntas pendientes y la partida no ha acabado, pasamos al siguiente turno
+        // si no quedan preguntas pendientes y la partida no ha acabado, pasamos al
+        // siguiente turno
         if (!"QUESTION_PENDING".equalsIgnoreCase((String) turnInfo.get("subState"))
                 && !"FINISHED".equalsIgnoreCase(game.getGameState())) {
             avanzarSiguienteTurnoEstructural(state);
@@ -888,7 +907,8 @@ public class GameController {
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> players = (List<Map<String, Object>>) state.get("players");
 
-        // Recuperamos el mapa de la pregunta que guardamos en rollDice e incluimos la nueva información relevante
+        // Recuperamos el mapa de la pregunta que guardamos en rollDice e incluimos la
+        // nueva información relevante
         @SuppressWarnings("unchecked")
         Map<String, Object> activeQuestion = (Map<String, Object>) state.get("activeQuestion");
 
@@ -976,14 +996,13 @@ public class GameController {
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> players = (List<Map<String, Object>>) state.get("players");
 
-        //Enviamos mensaje websocket a todos los jugadores para que el modal se cierre
+        // Enviamos mensaje websocket a todos los jugadores para que el modal se cierre
         messagingTemplate.convertAndSend("/topic/" + code,
                 Map.of("type", "update", "players", players, "gameState", state));
 
         return Map.of("status", "success");
     }
 
-    
     /*
      * ==============
      * LOBBY
@@ -1151,6 +1170,7 @@ public class GameController {
     // Emite "game_start" por WebSocket
     // con la URL de redirección a la pantalla de juego
     private final Random random = new Random();
+
     @PostMapping("/{code}/start")
     @ResponseBody
     @Transactional

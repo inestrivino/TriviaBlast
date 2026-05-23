@@ -96,7 +96,7 @@ window.GameClient = (() => {
 
             //si se recibe un mensaje update se recargan los jugadores y el tablero+dado
             case "update":
-                //TO DO : TODA ESTA SECCIÓN NO PODRÍA SER SIMPLEMENTE EL LAODPLAYERS?
+                //es más eficiente hacer todo esto aquí con los datos recibidos del websocket que llamar a loadPlayers
                 if (data.players) renderPlayers(data.players);
                 if (data.gameState) currentGameState = data.gameState;
 
@@ -121,7 +121,6 @@ window.GameClient = (() => {
                 break;
 
             //si un jugador ha sido echado se re-renderizan los jugadores
-            //TO DO : ESTO TAMBIEN DEBERIA MOSTRARSE EN LA PARTIDA EN SI
             case "player_kicked":
                 if (data.players) {
                     renderPlayers(data.players);
@@ -318,7 +317,6 @@ window.GameClient = (() => {
                     return;
                 }
                 //si todo va bien, renderiza a los jugadores
-                //TO DO: ESTO NO DEBERIA SER UN LOAD PLAYERS COMPLETO?
                 if (data.players) renderPlayers(data.players);
                 //y te da la bienvenida
                 setStatus(`Welcome ${data.username}`, "success");
@@ -639,19 +637,8 @@ window.GameClient = (() => {
             btnDado.addEventListener("click", () => {
                 btnDado.disabled = true;
 
-                const headers = {
-                    'Content-Type': 'application/json'
-                };
-
-                if (config && config.csrf && config.csrf.header && config.csrf.value) {
-                    headers[config.csrf.header] = config.csrf.value;
-                }
-
-                fetch(`/game/${cfg.gameCode}/roll-dice`, {
-                    method: 'POST',
-                    headers: headers
-                })
-                    .then(res => res.json())
+                // Usamos la función global "go" (el cuerpo va vacío porque no enviamos payload)
+                go(`/game/${cfg.gameCode}/roll-dice`, "POST")
                     .then(data => {
                         btnDado.disabled = false;
                         if (data.status === "error") {
@@ -762,18 +749,11 @@ window.GameClient = (() => {
             if (miTurno) {
                 footer.classList.remove("d-none");
                 document.getElementById("btn-cerrar-modal").onclick = () => {
-                    const headers = { 'Content-Type': 'application/json' };
-                    if (config && config.csrf && config.csrf.header && config.csrf.value) {
-                        headers[config.csrf.header] = config.csrf.value;
-                    }
-
                     //si se cierra el modal se avisa al backend para que actualice el estado interno de la partida
-                    fetch(`/game/${cfg.gameCode}/close-question-modal`, {
-                        method: 'POST',
-                        headers: headers
-                    });
+                    go(`/game/${cfg.gameCode}/close-question-modal`, "POST")
+                        .catch(err => console.error("Error al cerrar el modal en el backend:", err));
                 };
-            }
+            };
         }
 
         //se muestra el modal de pregunta
@@ -786,20 +766,8 @@ window.GameClient = (() => {
         const hijos = document.getElementById("multi-answers-container").children;
         Array.from(hijos).forEach(b => b.disabled = true);
 
-        const headers = { 'Content-Type': 'application/json' };
-        if (config && config.csrf && config.csrf.header && config.csrf.value) {
-            headers[config.csrf.header] = config.csrf.value;
-        }
-
-        //se envia la respuesta elegida al backend para decidir si es correcta o no
-        fetch(`/game/${cfg.gameCode}/submit-answer`, {
-            method: 'POST',
-            headers: headers,
-            body: JSON.stringify({
-                answer: answer
-            })
-        })
-            .then(res => res.json())
+        // pasamos la respuesta al backend para que sea validada
+        go(`/game/${cfg.gameCode}/submit-answer`, "POST", { answer: answer })
             .then(data => {
                 if (data.status === "error") {
                     alert(data.message);

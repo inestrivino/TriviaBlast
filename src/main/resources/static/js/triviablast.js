@@ -58,25 +58,13 @@ function initTableToggleButtons() {
         button.addEventListener('click', () => {
             // se obtiene el id del usuario al que se refiere el botón para crear el url de llamada al backend
             const userId = button.dataset.id;
-            const url = window.location.origin + '/admin/toggleView/' + userId;
 
-            // llamada al backend
-            fetch(url, {
-                method: "POST",
-                headers: {
-                    [config.csrf.header]: config.csrf.value
-                }
-            })
-                .then(res => {
-                    //si da error se lanza un mensaje indicandolo
-                    if (!res.ok) throw new Error("Error updating visibility");
-                    return res.json();
-                })
+            // llamada al backend utilizando la función unificada 'go'
+            go(`/admin/toggleView/${userId}`, "POST")
                 .then(data => {
                     // si todo fue bien entonces se re-renderiza al usuario para que se vea apagado o mejor según su nueva visibilidad
                     if (!data) return;
 
-                    // TO DO: HACER QUE FUNCIONE POR AJAX IGUAL QUE LO DE ADMIN
                     if (window.location.pathname.includes('scoreboard')) {
                         location.reload();
                         return;
@@ -128,18 +116,7 @@ function initUserReportButtons() {
 
             //se le pide confirmación al usuario
             if (confirm(`¿Estás seguro de que deseas denunciar al jugador "${username}" ante los administradores?`)) {
-                //llamada al método report en el backend con el id del usuario denunciado
-                fetch(`/user/report/${userId}`, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        [config.csrf.header]: config.csrf.value
-                    }
-                })
-                    .then(response => {
-                        if (!response.ok) throw new Error("Network response error");
-                        return response.json();
-                    })
+                go(`/user/report/${userId}`, "POST")
                     .then(data => {
                         if (data.status === "success") {
                             alert("Denuncia enviada de forma confidencial. El equipo de soporte lo revisará pronto.");
@@ -161,6 +138,10 @@ function initUserReportButtons() {
 ========================= */
 //tabla de mensajes
 let adminDataTableInstance = null;
+//para acceder al websocket
+let wsClient = null;
+let subscribed = false;
+
 
 // inicialización de mensajes de tabla de mensajes de admin
 function initAdminMessagesTable() {
@@ -178,16 +159,30 @@ function initAdminMessagesTable() {
                 tableEl.innerHTML = '';
             }
 
-            const tableData = d.map(m => [m.from || 'Sistema', m.to || 'Todos', m.text]);
-            
+            // 1. Filtramos para eliminar las denuncias del feed general
+            // 2. Invertimos el array (.reverse()) para que los más nuevos salgan arriba
+            const mensajesFiltradosYOrdenados = d
+                .filter(m => {
+                    const texto = m.text || '';
+                    const remitente = m.from || '';
+                    // Excluye si el texto o el remitente contienen la palabra "Denuncia"
+                    return !m.adminOnly;
+                })
+                .reverse();
+
+            const tableData = mensajesFiltradosYOrdenados.map(m => [
+                m.from || 'Sistema', 
+                m.game || 'General / Lobby', 
+                m.text
+            ]);
+
             //creamos la tabla (con la librería correspondiente) y la rellenamos
-            //TO DO: HACER QUE FUNCIONE
             adminDataTableInstance = new simpleDatatables.DataTable('#messages', {
                 data: {
-                    headings: ['From', 'To', 'Text'],
+                    headings: ['From', 'Partida', 'Text'],
                     data: tableData
                 },
-                searchable: true,
+                searchable: true, 
                 paging: false
             });
         });
@@ -203,74 +198,83 @@ function initAdminMessagesTable() {
 }
 
 // inicialización de tabla de mensajes de alerta para admin
-function initAdminWebSocketAlerts() {
-    // obtenemos el panel de alertas
+function initAdminWebSocketAlerts(ws) {
+    // Guardamos la referencia del cliente WS
+    wsClient = ws;
+
     const alertsPanel = document.getElementById("live-alerts-panel");
     if (!alertsPanel) return;
 
-    // funcion interna para recibir los mensajes dedicados a admin en el websocket
-    function interceptarMensajesAdmin() {
-        if (typeof window.ws !== 'undefined' && window.ws.connected) {
-            // Salvamos el comportamiento base para no romper otras funciones globales
-            const originalReceive = window.ws.receive;
+    // Función para suscribirse al canal
+    function subscribeAdminWS() {
+        if (subscribed) return;
 
-            // Sobrescribimos el manejador para capturar los mensajes entrantes de /topic/admin
-            window.ws.receive = function (alerta) {
-                //empezamos realizando las acciones pre-definidas base para la
-                //recepción de un mensaje en el websocket (mirar iw.js)
-                if (typeof originalReceive === "function") {
-                    originalReceive(alerta);
-                }
+        // Si el cliente no está listo todavía, esperamos un poco
+        if (!wsClient?.connected) {
+            setTimeout(subscribeAdminWS, 200);
+            return;
+        }
 
-                //linea para debugging
-                console.log("Mensaje capturado en panel de administración:", alerta);
+        //nos suscribimos al topic/admin
+        wsClient.subscribe("/topic/admin", msg => {
+            handleAdminMessage(msg);
+        });
 
-                // Comprobamos que el mensaje sea una denuncia
-                if (alerta.from && alerta.from.includes("Denuncia") || alerta.text) {
+        subscribed = true;
+        console.log("Panel de administración suscrito con éxito a /topic/admin");
+    }
 
-                    // Obtenemos el elemento que indica la falta de alertas y lo quitamos
-                    const noAlertsMsg = document.getElementById("no-alerts-msg");
-                    if (noAlertsMsg) noAlertsMsg.remove();
+    // Arrancamos el proceso de suscripción
+    subscribeAdminWS();
+}
 
-                    // creamos un nuevo div para mostrar la alerta
-                    const item = document.createElement("div");
-                    item.className = "list-group-item list-group-item-action d-flex justify-content-between align-items-center";
-
-                    // obtenemos la hora a la que fue enviada la alerta
-                    const hora = alerta.sent || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-                    // insertamos el html correspondiente para la renderización de la alerta
-                    item.innerHTML = `
-                        <div>
-                            <span class="badge bg-danger me-2">Denuncia</span>
-                            <span>${escapeHtml(alerta.text)}</span>
-                        </div>
-                        <small class="text-muted">${hora}</small>
-                    `;
-
-                    // La insertamos arriba (más nuevas primero)
-                    alertsPanel.insertBefore(item, alertsPanel.firstChild);
-
-                    // Actualizamos el controlador numérico del panel
-                    const contador = document.getElementById("alert-counter");
-                    if (contador) {
-                        const numeroAlertas = alertsPanel.querySelectorAll('.list-group-item:not(#no-alerts-msg)').length;
-                        contador.innerText = `${numeroAlertas} nuevas`;
-                        contador.classList.add("badge-alert");
-                    }
-                }
-            };
-
-            // linea para debugging
-            console.log("Interceptor de administración acoplado correctamente a iw.js");
-        } else {
-            // Reintentar si el socket tarda unos milisegundos en conectar
-            setTimeout(interceptarMensajesAdmin, 300);
+// Función manejadora exclusiva para las alertas de administración
+function handleAdminMessage(msg) {
+    let alerta = msg;
+    if (msg && msg.body) {
+        try {
+            alerta = JSON.parse(msg.body);
+        } catch (e) {
+            console.error("Error parseando la alerta de admin:", e);
+            return;
         }
     }
 
-    // se inicializa una vez al cargar la página para mostrar todas las denuncias que hubiese
-    interceptarMensajesAdmin();
+    console.log("¡Mensaje capturado en el panel de administración!", alerta);
+
+    // Comprobamos que el mensaje sea una denuncia válida
+    if (alerta && (alerta.text || (alerta.from && alerta.from.includes("Denuncia")))) {
+        const alertsPanel = document.getElementById("live-alerts-panel");
+
+        // Quitamos el mensaje de "No hay alertas"
+        const noAlertsMsg = document.getElementById("no-alerts-msg");
+        if (noAlertsMsg) noAlertsMsg.remove();
+
+        // Creamos el elemento visual
+        const item = document.createElement("div");
+        item.className = "list-group-item list-group-item-action d-flex justify-content-between align-items-center";
+
+        const hora = alerta.sent || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        item.innerHTML = `
+            <div>
+                <span class="badge bg-danger me-2">Denuncia</span>
+                <span>${escapeHtml(alerta.text || alerta)}</span>
+            </div>
+            <small class="text-muted">${hora}</small>
+        `;
+
+        // Insertamos arriba del todo (más nuevas primero)
+        alertsPanel.insertBefore(item, alertsPanel.firstChild);
+
+        // Actualizamos el contador
+        const contador = document.getElementById("alert-counter");
+        if (contador) {
+            const numeroAlertas = alertsPanel.querySelectorAll('.list-group-item:not(#no-alerts-msg)').length;
+            contador.innerText = `${numeroAlertas} nuevas`;
+            contador.classList.add("badge-alert");
+        }
+    }
 }
 
 /* =========================
@@ -337,15 +341,7 @@ function initSingleplayerGame() {
 
     //función interna para enviar la respuesta elegida al backend para validación
     function sendAnswer(answer, questionId, clickedBtn) {
-        fetch("/game/answer", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                [config.csrf.header]: config.csrf.value
-            },
-            body: JSON.stringify({ questionId, answer })
-        })
-            .then(res => res.json())
+        go("/game/answer", "POST", { questionId: questionId, answer: answer })
             .then(data => {
                 const answersEl = document.getElementById("answers");
                 const feedbackEl = document.getElementById("feedback");
@@ -376,7 +372,8 @@ function initSingleplayerGame() {
                 nextBtn.disabled = false;
                 // se actualiza el estado de la partida (reflejar los puntos nuevos si hay)
                 updateStatus();
-            });
+            })
+            .catch(err => console.error("Error al procesar la respuesta a la pregunta:", err));
     }
 
     // action listener para el botón de siguiente pregunta. aumenta el indice de la pregunta

@@ -102,7 +102,6 @@ public class AdminController {
   @ResponseBody // para indicar que no devuelve vista, sino un objeto (jsonizado)
   public List<Message.Transfer> retrieveMessages(HttpSession session) {
     TypedQuery<Message> query = entityManager.createQuery("select m from Message m", Message.class);
-    query.setMaxResults(5);
     query.setFirstResult(0);
     // devuelve resultado
     return query.getResultList().stream().map(Transferable::toTransfer)

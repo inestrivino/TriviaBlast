@@ -93,6 +93,10 @@
             <!-- PLAYERS -->
             <h6>Players</h6>
 
+            <div id="lobby-status" class="alert alert-info mb-3" style="display: none;" role="alert">
+                Connecting to the lobby...
+            </div>
+
             <ul class="list-group mb-3" id="player-list">
                 <li class="list-group-item text-muted">
                     Loading players...
@@ -222,7 +226,7 @@
     <script th:src="@{/js/bootstrap.bundle-5.3.3.js}" src="/js/bootstrap.bundle-5.3.3.js"></script>
     <script th:src="@{/js/svg.min.js}" src="/js/svg.min.js"></script>
     <script th:src="@{/js/gameClient.js}"></script>
-    
+
     <!-- CODIGO PARA ENVIAR DATOS IMPORTANTES AL GAMECLIENT Y CARGAR LOS JUGADORES Y MENSAJES -->
     <script th:inline="javascript">
         document.addEventListener("DOMContentLoaded", () => {
