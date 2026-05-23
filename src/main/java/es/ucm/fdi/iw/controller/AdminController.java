@@ -96,7 +96,7 @@ public class AdminController {
     }
   }
 
-  // Devuelve los últimos 5 mensajes del sistema como JSON
+  // Devuelve los últimos mensajes del sistema como JSON
   @GetMapping(path = "all-messages", produces = "application/json")
   @Transactional // para no recibir resultados inconsistentes
   @ResponseBody // para indicar que no devuelve vista, sino un objeto (jsonizado)
