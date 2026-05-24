@@ -3,28 +3,14 @@ package external;
 import com.intuit.karate.junit5.Karate;
 
 class ExternalRunnerTest {
-    
-    @Karate.Test
-    Karate testLogin() {
-        return Karate.run("login").relativeTo(getClass());
-    }    
 
-    @Karate.Test
-    Karate testWs() {
-        return Karate.run("ws").relativeTo(getClass());
-    }  
+    // TESTS DE PARTIDA
+
+    // crear partida
+
     @Karate.Test
     Karate testJoinRoom() {
         return Karate.run("join-room").relativeTo(getClass());
-    }
-
-    @Karate.Test
-    Karate testJoinRoomNoLogin() {
-        return Karate.run("join-room-no-login").relativeTo(getClass());
-    }
-    @Karate.Test
-    Karate testJoinRoomSingleplayer() {
-        return Karate.run("join-room-singleplayer").relativeTo(getClass());
     }
 
     @Karate.Test
@@ -32,9 +18,21 @@ class ExternalRunnerTest {
         return Karate.run("answer-question").relativeTo(getClass());
     }
 
+    // TESTS DE MODERACION
+
+    // envio de reporte al administrador
+    // envio de reporte de partida al administrador
+
+    // TESTS DE CUENTA
+
     @Karate.Test
     Karate testCreateAccount() {
         return Karate.run("create-account").relativeTo(getClass());
+    }
+
+    @Karate.Test
+    Karate testLogin() {
+        return Karate.run("login").relativeTo(getClass());
     }
 
     @Karate.Test
@@ -48,11 +46,7 @@ class ExternalRunnerTest {
     }
 
     @Karate.Test
-    Karate testBoard() {
-        return Karate.run("board-generated").relativeTo(getClass());
-    }
-    @Karate.Test
     Karate testDeleteAccount() {
         return Karate.run("delete-account").relativeTo(getClass());
-    }   
+    }
 }

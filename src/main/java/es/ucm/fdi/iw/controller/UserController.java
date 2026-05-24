@@ -80,6 +80,7 @@ public class UserController {
   private PasswordEncoder passwordEncoder;
   @Autowired
   private AuthenticationManager authenticationManager;
+
   @ModelAttribute
   public void populateModel(HttpSession session, Model model) {
     for (String name : new String[] { "u", "url", "ws", "topics" }) {
@@ -116,7 +117,8 @@ public class UserController {
    * Generates random tokens. From https://stackoverflow.com/a/44227131/15472
    */
   // genera tokens aleatorios seguros para la contraseña
-  //no se usó para los códigos de partida ya que crea tokens con chars no alfanuméricos
+  // no se usó para los códigos de partida ya que crea tokens con chars no
+  // alfanuméricos
   public static String generateRandomBase64Token(int byteLength) {
     SecureRandom secureRandom = new SecureRandom();
     byte[] token = new byte[byteLength];
@@ -143,14 +145,6 @@ public class UserController {
 
     // Le pasamos a Thymeleaf el usuario recién sacado de la BD
     model.addAttribute("user", freshUser);
-    return "profile";
-  }
-
-  // Busca el usuario por ID en la BD y renderiza profile.html
-  @GetMapping("{id}")
-  public String index(@PathVariable long id, Model model, HttpSession session) {
-    User target = entityManager.find(User.class, id);
-    model.addAttribute("user", target);
     return "profile";
   }
 
@@ -262,6 +256,99 @@ public class UserController {
     }
   }
 
+  // devuelve el scoreboard de los usuarios
+  @GetMapping("/scoreboard")
+  public String scoreboard(Model model, Authentication authentication) {
+    List<User> users;
+
+    // 1. Verificar si el usuario actual está autenticado
+    boolean isAdmin = false;
+    if (authentication != null && authentication.isAuthenticated()) {
+      String currentUsername = authentication.getName();
+
+      try {
+        User currentUser = entityManager.createQuery(
+            "SELECT u FROM User u WHERE u.username = :username", User.class)
+            .setParameter("username", currentUsername)
+            .getSingleResult();
+
+        if (currentUser.getRoles() != null && currentUser.getRoles().contains("ADMIN")) {
+          isAdmin = true;
+        }
+      } catch (Exception e) {
+        isAdmin = false;
+      }
+    }
+
+    if (isAdmin) {
+      users = entityManager.createQuery(
+          "SELECT u FROM User u ORDER BY u.totalPoints DESC", User.class)
+          .getResultList();
+    } else {
+      // Los usuarios normales y anónimos SOLO ven los que tienen enabled = true
+      users = entityManager.createQuery(
+          "SELECT u FROM User u WHERE u.enabled = true ORDER BY u.totalPoints DESC", User.class)
+          .getResultList();
+    }
+
+    model.addAttribute("users", users);
+    return "scoreboard";
+  }
+
+  // permite a un usuario reportar a otro ante los administradores
+  @PostMapping("/report/{id}")
+  @ResponseBody
+  @Transactional
+  public Map<String, Object> reportUser(@PathVariable long id, Authentication authentication)
+      throws JsonProcessingException {
+
+    if (authentication == null || !authentication.isAuthenticated()) {
+      return Map.of("status", "error", "message", "No autenticado");
+    }
+
+    String myUsername = authentication.getName();
+    User me = entityManager.createQuery("SELECT u FROM User u WHERE u.username = :username", User.class)
+        .setParameter("username", myUsername)
+        .getSingleResult();
+
+    User reportedUser = entityManager.find(User.class, id);
+    if (reportedUser == null) {
+      return Map.of("status", "error", "message", "Usuario no encontrado");
+    }
+
+    // Texto descriptivo
+    String textoMensaje = String.format("El usuario '%s' (ID: %d) ha reportado a '%s' (ID: %d).",
+        me.getUsername(), me.getId(), reportedUser.getUsername(), reportedUser.getId());
+
+    // 1. CREAR Y PERSISTIR EL MENSAJE
+    Message dbMessage = new Message();
+    dbMessage.setSender(me);
+    dbMessage.setText(textoMensaje);
+    dbMessage.setDateSent(java.time.LocalDateTime.now());
+    dbMessage.setAdminOnly(true);
+    dbMessage.setGame(null);
+
+    entityManager.persist(dbMessage);
+    entityManager.flush();
+
+    // 2. PREPARAR PAYLOAD WEBSOCKET
+    ObjectMapper mapper = new ObjectMapper();
+    String horaActual = java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
+
+    Map<String, Object> alertPayload = Map.of(
+        "from", "SISTEMA (Denuncia)",
+        "text", textoMensaje,
+        "sent", horaActual);
+
+    String jsonAlert = mapper.writeValueAsString(alertPayload);
+
+    // 3. ENVIAR AL CANAL
+    log.info("Despachando alerta de moderación a /topic/admin: {}", jsonAlert);
+    messagingTemplate.convertAndSend("/topic/admin", jsonAlert);
+
+    return Map.of("status", "success", "message", "Denuncia procesada y registrada en el sistema");
+  }
+
   /*
    * * Actualiza el perfil. Distingue tres sub-formularios vía el param
    * "formType":
@@ -270,6 +357,14 @@ public class UserController {
    * · "avatar" → redirige al endpoint /pic
    * Solo el propio usuario o un ADMIN pueden modificar un perfil
    */
+  // Busca el usuario por ID en la BD y renderiza profile.html
+  @GetMapping("{id}")
+  public String index(@PathVariable long id, Model model, HttpSession session) {
+    User target = entityManager.find(User.class, id);
+    model.addAttribute("user", target);
+    return "profile";
+  }
+
   @PostMapping("/{id}")
   @Transactional
   public String postUser(
@@ -555,98 +650,5 @@ public class UserController {
     }
 
     return "redirect:/";
-  }
-
-  // devuelve el scoreboard de los usuarios
-  @GetMapping("/scoreboard")
-  public String scoreboard(Model model, Authentication authentication) {
-    List<User> users;
-
-    // 1. Verificar si el usuario actual está autenticado
-    boolean isAdmin = false;
-    if (authentication != null && authentication.isAuthenticated()) {
-      String currentUsername = authentication.getName();
-
-      try {
-        User currentUser = entityManager.createQuery(
-            "SELECT u FROM User u WHERE u.username = :username", User.class)
-            .setParameter("username", currentUsername)
-            .getSingleResult();
-
-        if (currentUser.getRoles() != null && currentUser.getRoles().contains("ADMIN")) {
-          isAdmin = true;
-        }
-      } catch (Exception e) {
-        isAdmin = false;
-      }
-    }
-
-    if (isAdmin) {
-      users = entityManager.createQuery(
-          "SELECT u FROM User u ORDER BY u.totalPoints DESC", User.class)
-          .getResultList();
-    } else {
-      // Los usuarios normales y anónimos SOLO ven los que tienen enabled = true
-      users = entityManager.createQuery(
-          "SELECT u FROM User u WHERE u.enabled = true ORDER BY u.totalPoints DESC", User.class)
-          .getResultList();
-    }
-
-    model.addAttribute("users", users);
-    return "scoreboard";
-  }
-
-  // permite a un usuario reportar a otro ante los administradores
-  @PostMapping("/report/{id}")
-  @ResponseBody
-  @Transactional
-  public Map<String, Object> reportUser(@PathVariable long id, Authentication authentication)
-      throws JsonProcessingException {
-
-    if (authentication == null || !authentication.isAuthenticated()) {
-      return Map.of("status", "error", "message", "No autenticado");
-    }
-
-    String myUsername = authentication.getName();
-    User me = entityManager.createQuery("SELECT u FROM User u WHERE u.username = :username", User.class)
-        .setParameter("username", myUsername)
-        .getSingleResult();
-
-    User reportedUser = entityManager.find(User.class, id);
-    if (reportedUser == null) {
-      return Map.of("status", "error", "message", "Usuario no encontrado");
-    }
-
-    // Texto descriptivo
-    String textoMensaje = String.format("El usuario '%s' (ID: %d) ha reportado a '%s' (ID: %d).",
-        me.getUsername(), me.getId(), reportedUser.getUsername(), reportedUser.getId());
-
-    // 1. CREAR Y PERSISTIR EL MENSAJE
-    Message dbMessage = new Message();
-    dbMessage.setSender(me);
-    dbMessage.setText(textoMensaje);
-    dbMessage.setDateSent(java.time.LocalDateTime.now());
-    dbMessage.setAdminOnly(true);
-    dbMessage.setGame(null);
-
-    entityManager.persist(dbMessage);
-    entityManager.flush();
-
-    // 2. PREPARAR PAYLOAD WEBSOCKET
-    ObjectMapper mapper = new ObjectMapper();
-    String horaActual = java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
-
-    Map<String, Object> alertPayload = Map.of(
-        "from", "SISTEMA (Denuncia)",
-        "text", textoMensaje,
-        "sent", horaActual);
-
-    String jsonAlert = mapper.writeValueAsString(alertPayload);
-
-    // 3. ENVIAR AL CANAL
-    log.info("Despachando alerta de moderación a /topic/admin: {}", jsonAlert);
-    messagingTemplate.convertAndSend("/topic/admin", jsonAlert);
-
-    return Map.of("status", "success", "message", "Denuncia procesada y registrada en el sistema");
   }
 }

@@ -208,6 +208,15 @@ function postImage(img, endpoint, name, filename) {
  * Actions to perform once the page is fully loaded
  */
 document.addEventListener("DOMContentLoaded", () => {
+    // REPARACIÓN: Si vienen vacíos de servidor, los calculamos dinámicamente
+    if (!config.socketUrl && window.location.host) {
+        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        config.socketUrl = `${protocol}//${window.location.host}/ws`;
+    }
+    if (!config.rootUrl && window.location.origin) {
+        config.rootUrl = window.location.origin;
+    }
+
     if (config.socketUrl) {
         let subs = config.admin ? ["/topic/admin", "/user/queue/updates"] : ["/user/queue/updates"]
         if (config.topics && config.topics.length > 0) {
@@ -222,8 +231,4 @@ document.addEventListener("DOMContentLoaded", () => {
     } else {
         console.log("Not opening websocket: missing config", config)
     }
-
-    // add your after-page-loaded JS code here; or even better, call 
-    // 	 document.addEventListener("DOMContentLoaded", () => { /* your-code-here */ });
-    //   (assuming you do not care about order-of-execution, all such handlers will be called correctly)
 });

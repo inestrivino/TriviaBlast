@@ -75,7 +75,10 @@ public class SecurityConfig {
 
 		http
 				.csrf(csrf -> csrf
-						.ignoringRequestMatchers("/api/**"))
+						// Ignoramos el CSRF para las rutas que queremos probar con karate
+						.ignoringRequestMatchers(
+								"/api/**",
+								"/user/register"))
 				.authorizeHttpRequests(authorize -> authorize
 
 						// recursos públicos
