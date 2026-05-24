@@ -30,6 +30,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.HtmlUtils;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -125,14 +126,21 @@ public class GameController {
         int i = 0;
         for (Map<String, Object> q : results) {
             List<String> answers = new ArrayList<>();
-            String correct = (String) q.get("correct_answer");
+            String correct = HtmlUtils.htmlUnescape((String) q.get("correct_answer"));
+            String questionText = HtmlUtils.htmlUnescape((String) q.get("question"));
 
             answers.add(correct);
-            answers.addAll((List<String>) q.get("incorrect_answers"));
+
+            // Decodificamos también las respuestas incorrectas
+            List<String> incorrects = (List<String>) q.get("incorrect_answers");
+            for (String inc : incorrects) {
+                answers.add(HtmlUtils.htmlUnescape(inc));
+            }
+
             Collections.shuffle(answers);
 
-            fullQuestions.add(new QuestionDataPrivateDTO(i, (String) q.get("question"), answers, correct));
-            publicQuestions.add(new QuestionDataPublicDTO(i, (String) q.get("question"), answers));
+            fullQuestions.add(new QuestionDataPrivateDTO(i, questionText, answers, correct));
+            publicQuestions.add(new QuestionDataPublicDTO(i, questionText, answers));
 
             i++;
         }
@@ -160,7 +168,7 @@ public class GameController {
 
         // compara la respuesta dada con la correcta para determinar su validez
         QuestionDataPrivateDTO q = questions.get(req.getQuestionId());
-        boolean isCorrect = q.getCorrectAnswer().equals(req.getAnswer());
+        boolean isCorrect = q.getCorrectAnswer().trim().equalsIgnoreCase(req.getAnswer().trim());
 
         // si la respuesta es correcta inserta 10 puntos en la BD para el usuario que la
         // envío
@@ -199,7 +207,11 @@ public class GameController {
 
         // tomamos al usuario
         User u = (User) session.getAttribute("u");
+        if (u == null)
+            return "redirect:/login";
         u = entityManager.find(User.class, u.getId());
+        if (u == null)
+            return "redirect:/login";
 
         // creamos la partida con sus categorías, un código generado, su dificultad, su
         // estado (iniciado a WAITING) y su host
@@ -1115,9 +1127,7 @@ public class GameController {
                     return false;
                 }).findFirst().orElse(null);
 
-        if (existingPlayer != null)
-
-        {
+        if (existingPlayer != null) {
             // Ya estaba: actualizamos datos que puedan cambiar
             existingPlayer.put("username", u.getUsername());
         } else {

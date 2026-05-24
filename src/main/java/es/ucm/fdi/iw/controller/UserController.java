@@ -478,9 +478,9 @@ public class UserController {
         session.setAttribute("u", target);
       }
       return "redirect:/user/" + id;
-    } catch (
-
-    Exception e) {
+    } catch (NoEsTuPerfilException e) {
+      throw e;
+    } catch (Exception e) {
       log.error("Error updating user", e);
       String msg = e.getMessage();
       if (msg != null) {

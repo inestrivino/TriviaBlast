@@ -1,7 +1,7 @@
 Feature: Pruebas del endpoint de registro
   # Si se envían datos incorrectos, envía al usuario a la página de login otra vez
-  # Si sí son correctos, entonces 
-  
+  # Si sí son correctos, entonces envía a la página de perfil del usuario
+
   Background:
     * url 'http://localhost:8080'
     * configure followRedirects = false

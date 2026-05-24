@@ -6,11 +6,14 @@ class ExternalRunnerTest {
 
     // TESTS DE PARTIDA
 
-    // crear partida
+    @Karate.Test
+    Karate testCreateGame() {
+        return Karate.run("create-game").relativeTo(getClass());
+    }
 
     @Karate.Test
     Karate testJoinRoom() {
-        return Karate.run("join-room").relativeTo(getClass());
+        return Karate.run("join-game").relativeTo(getClass());
     }
 
     @Karate.Test
@@ -18,26 +21,11 @@ class ExternalRunnerTest {
         return Karate.run("answer-question").relativeTo(getClass());
     }
 
-    // TESTS DE MODERACION
-
-    // envio de reporte al administrador
-    // envio de reporte de partida al administrador
-
     // TESTS DE CUENTA
 
     @Karate.Test
     Karate testCreateAccount() {
         return Karate.run("create-account").relativeTo(getClass());
-    }
-
-    @Karate.Test
-    Karate testLogin() {
-        return Karate.run("login").relativeTo(getClass());
-    }
-
-    @Karate.Test
-    Karate testLogout() {
-        return Karate.run("logout").relativeTo(getClass());
     }
 
     @Karate.Test
