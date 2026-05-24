@@ -18,10 +18,16 @@ El proyecto hace uso de Bootstrap, Springboot, Maven, Thymeleaf, para crear una 
 
 En ciertas partes de la página se puede apreciar el uso de tecnologías AJAX y Websockets, en específico durante la partida multijugador.
 
+### Pruebas externas
+
+Se han creado una serie de pruebas externas que comprueban la validez de la lógica de los endpoints definidos para las acciones de usuario (crear cuenta, editar perfil...) como para las acciones relacionadas con el juego (crear juego, unirse, comprobar preguntas...). Estas pruebas, creadas con Karate, pueden encontrarse en `src/test/external`. Ejecute `ExternalRunnerTest.java` para probarlas. Además, Karate proporciona un resúmen del resultado de los tests en `src/target/karate-reports/karate-summary.html` que es recomendable ver.
+
 ### Otros detalles
 
 La mayor parte del js del lado del cliente de la aplicación se puede encontrar en el archivo `TriviaBlast.js`, salvo lo referido a el lobby y la partida multijugador, que debido a su extensión y complejidad se encuentra en el archivo `gameClient.js`.
 Por lo demás, el proyecto sigue la estructura que se esperaría.
+
+En el modo multijugador se dispone de un dado giratorio con animación. El "verdadero" dado se encuentra en el backend con una función Random, y se proporciona el resultado al dado del frontend, que no termina su animación hasta que lo recibe. Además, el backend tiene un buffer de 4 segundos para garantizar que no se hagan varias llamadas repetidas a la API, por lo que la animación durará como mínimo 4 segundos.
 
 ### Roles y Sistema de Permisos
 
@@ -93,15 +99,16 @@ Para facilitar las tareas de evaluación al arrancar la aplicación, la base de 
 * **Usuario `a`:** Cuenta con rol de **Administrador**.
 * **Usuario `b`:** Cuenta con rol de **Jugador** normal.
 
+La contraseña es `aa` en ambos casos, y se dispone de botones para inicio de sesión rápido en la barra de navegación.
+
 ### Recursos Externos y Uso de IA
 
-* Se contempla la integración de componentes externos de referencia para animar la física del dado en el modo multijugador.
 * Se ha hecho uso de IA a lo largo del desarrollo del proyecto sobretodo para tareas de refactorización del código, para conseguir un diseño de la interfaz agradable e intuitiva, para debuggear, y para escribir secciones del código, en específico aquellas que hiciesen uso de librerías externas poco conocidas, como la renderización del tablero.
-* No se ha hecho uso de código (humano) de internet o libros para referencias. Se consideró para conseguir el efecto dado con animación en frontend pero finalmente se optó por no introducrilo dadas las limitaciones en tiempo. Sí que se usó de referencia el material académico de la clase, incluída la plantilla de código proporcionada.
+* No se ha hecho uso de código (humano) de internet o libros para referencias. Se usó de referencia el material académico de la clase, incluída la plantilla de código proporcionada.
+* Se consideró usar la librería `svg.js` que se usó para el tablero, así como *code snippets* de internet para lograr el efecto de dado giratorio en el modo multijugador. Sin embargo, debido a la dificultad de integración con el código existente y las limitaciones en tiempo, se consiguió el efecto con una mezcla de código humano (la base del dado, la estilización) e IA (la animación, gestión de las matemáticas involucradas para el efecto 3D). 
 
 ## 6. Trabajo Futuro 
 
 1.  **Optimización Responsiva Completa:** Rediseñar los contenedores y layouts del entorno multijugador (especialmente el tablero), dado que la versión actual presenta problemas de escalado y solapamiento de componentes en pantallas pequeñas o dispositivos móviles.
 2.  **Unificación de la Lógica de Preguntas:** Refactorizar el motor core de peticiones a OpenTDB para unificar la captura, almacenamiento temporal y procesado de preguntas entre los módulos individual y multijugador, reduciendo código duplicado y deuda técnica.
 3.  **Módulo de historial de Partidas:** Desarrollar una pestaña adicional de "Histórico" en el perfil de usuario que consulte de manera retrospectiva los datos de partidas pasadas (fechas, puestos, rivales y estadísticas), aportando mayor valor al progreso del jugador.
-4. **Optimizar el uso de la API externa:** La API elegida para la toma de preguntas, tiene limitaciones en tiempo y cantidad de preguntas posibles a recibir, lo cual puede provocar problemas durante la partida multijugador. Se ha elegido manejar estos casos tal que "la ronda pasa al siguiente", pero a largo plazo lo ideal sería tener un timer, como por ejemplo una animación de 5 segundos para el lanzamiento del dado.
