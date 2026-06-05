@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <th:block th:replace="~{fragments/head :: header}" />
+    <title>Game</title>
+
+    <style>
+        #chatPanel {
+            width: 320px;
+            transition: transform 0.3s ease;
+        }
+
+        .chat-open {
+            transform: translateX(0%);
+        }
+
+        .chat-closed {
+            transform: translateX(100%);
+        }
+
+        .turn-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: gold;
+            display: inline-block;
+            margin-right: 6px;
+        }
+
+        .board-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex: 1;
+        }
+
+        #tablero-container {
+            aspect-ratio: 1 / 1;
+            width: 100%;
+            max-width: 70%;
+        }
+
+        @media (max-width: 768px) {
+            #chatPanel {
+                position: fixed;
+                top: 0;
+                left: 0;
+                height: 100vh;
+                background: white;
+                z-index: 2000;
+            }
+
+            #playersPanel {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body class="vh-100 d-flex flex-column overflow-hidden">
+    <div class="d-flex flex-grow-1 overflow-hidden">
+        <!-- CHAT TAB (se mueve con el panel) -->
+        <div id="chatTab" style="position: fixed; right: 0; top: 10%; transform: translateY(-50%);
+            z-index: 2101; transition: right 0.3s;">
+
+            <button onclick="toggleChat()" class="btn btn-dark rounded-end-0">
+                <i id="chatIcon" class="bi bi-chevron-left"></i>
+            </button>
+
+        </div>
+
+        <!-- CHAT PANEL -->
+        <div id="chatPanel" class="border-start bg-light position-fixed h-100 chat-closed"
+            style="width: 320px; right: 0; top: 0; transition: transform 0.3s ease; z-index: 2000;">
+            <div class="p-2 d-flex flex-column h-100">
+                <h5>Chat</h5>
+                <div id="mensajes" class="border rounded p-2 mb-2 flex-grow-1"
+                    style="overflow-y:auto; background: white;"></div>
+
+                <input id="chat-input" class="form-control mb-2" placeholder="Mensaje..."
+                    onkeydown="if(event.key === 'Enter') GameClient.enviarMensajeChat()" />
+
+                <button id="chat-send-btn" class="btn btn-primary w-100" onclick="GameClient.enviarMensajeChat()">
+                    Enviar
+                </button>
+
+            </div>
+        </div>
+
+        <!-- LEFT PANEL (players + buttons) -->
+        <div class="border-end p-3 d-flex flex-column h-100" style="width: 260px;">
+            <!-- PLAYERS -->
+            <h6>Players</h6>
+
+            <div id="lobby-status" class="alert alert-info mb-3" style="display: none;" role="alert">
+                Connecting to the lobby...
+            </div>
+
+            <ul class="list-group mb-3" id="player-list">
+                <li class="list-group-item text-muted">
+                    Loading players...
+                </li>
+            </ul>
+
+            <div class="text-center mt-3">
+                <!-- Contenedor del dado encima de tu tablero -->
+                <div class="dice-container d-none" id="btn-tirar-dado">
+                    <div id="dice" class="dice" onclick="GameClient.rollDice()">
+                        <div class="face front">1</div>
+                        <div class="face back">6</div>
+                        <div class="face right">2</div>
+                        <div class="face left">5</div>
+                        <div class="face top">3</div>
+                        <div class="face bottom">4</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- BOARD CENTER -->
+        <div class="flex-grow-1 d-flex justify-content-center align-items-center" id="contenedor-juego-activo">
+            <div class="container-fluid d-flex flex-column justify-content-center min-vh-100 py-4">
+                <div class="d-flex flex-column align-items-center ms-5"
+                    style="width: calc(100vw - 200px); max-width: 1200px;">
+
+                    <div id="tablero-container" class="w-100 rounded" style="aspect-ratio: 9 / 8; max-height: 75vh;">
+                    </div>
+
+                    <h3 id="categoria-display" class="text-center mt-4 fw-bold"
+                        style="min-height: 1.5em; transition: color 0.2s ease;">
+                        Pasa el ratón por una casilla para ver su categoría
+                    </h3>
+
+                </div>
+
+            </div>
+        </div>
+
+        <div id="contenedor-podio-final" class="container d-none text-center my-5">
+            <h1 class="display-4 fw-bold text-primary mb-4">The game is over!</h1>
+            <div class="row justify-content-center">
+                <div class="col-md-8">
+                    <div class="card shadow-lg p-4">
+                        <h3 class="mb-4 text-muted">Final score</h3>
+                        <div id="lista-podio" class="list-group">
+                        </div>
+                        <a href="/" class="btn btn-primary btn-lg mt-4 px-5">Return to the main menu</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="questionModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1"
+            aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content shadow-lg border-0">
+                    <div class="modal-header d-flex flex-column align-items-start">
+                        <h5 class="modal-title fw-bold" id="modal-player-title">Turn for player: ...</h5>
+
+                        <div class="d-flex gap-3 mt-1 small text-muted">
+                            <span>Dice result: <strong id="modal-dice-roll" class="text-dark">-</strong></span>
+                            <span>Category: <strong id="modal-category-label" class="text-dark">-</strong></span>
+                        </div>
+                    </div>
+                    <div class="modal-body p-4">
+                        <h4 id="multi-question-text" class="text-secondary mb-4"></h4>
+                        <div id="multi-answers-container" class="d-grid gap-2"></div>
+                        <div id="multi-feedback" class="text-center fw-bold fs-5 mt-3"></div>
+                        <div id="double-or-nothing-container" class="form-check mt-3 d-flex align-items-center gap-2">
+                            <input class="form-check-input" type="checkbox" id="double-or-nothing-check">
+                            <label class="form-check-label fw-semibold text-warning" for="double-or-nothing-check">
+                                Doble o nada
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer d-none" id="modal-footer-controls">
+                        <button id="btn-cerrar-modal" class="btn btn-primary w-100">Continuar partida</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL COMODÍN: selector de categoría -->
+        <div class="modal fade" id="wildcardModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1"
+            aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered modal-lg">
+                <div class="modal-content shadow-lg border-0">
+                    <div class="modal-header">
+                        <h5 class="modal-title fw-bold w-100 text-center" id="wildcard-modal-title">
+                            ★ ¡Casilla Comodín! Elige tu categoría
+                        </h5>
+                    </div>
+                    <div class="modal-body p-4">
+                        <p id="wildcard-waiting-notice" class="text-center text-muted fst-italic d-none">
+                            El jugador activo está eligiendo una categoría...
+                        </p>
+                        <div id="wildcard-categories-grid"
+                            style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!--CODIGO PARA EL CHAT PANEL DE CHAT (ABRIR Y CERRAR)-->
+    <script th:inline="javascript">
+        //código para manejar la apertura y cierre del chat
+        let chatOpen = false;
+        let userTouchedChat = false;
+
+        function setChat(open) {
+            const panel = document.getElementById("chatPanel");
+            const tab = document.getElementById("chatTab");
+            const icon = document.getElementById("chatIcon");
+
+            chatOpen = open;
+
+            panel.classList.remove("chat-open", "chat-closed");
+
+            if (open) {
+                panel.classList.add("chat-open");
+                tab.style.right = "320px";
+
+                icon.classList.replace("bi-chevron-left", "bi-chevron-right");
+
+            } else {
+                panel.classList.add("chat-closed");
+                tab.style.right = "0px";
+
+                icon.classList.replace("bi-chevron-right", "bi-chevron-left");
+            }
+        }
+
+        function toggleChat() {
+            userTouchedChat = true;
+            setChat(!chatOpen);
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const isMobile = window.innerWidth < 768;
+            setChat(!isMobile);
+        });
+
+        document.addEventListener("DOMContentLoaded", () => {
+
+            const isMobile = window.innerWidth < 768;
+
+            setChat(!isMobile);
+        });
+    </script>
+
+    <!-- CODIGO PARA CARGAR TODOS LOS JS QUE SE USAN (YA QUE AQUI NO HAY FOOTER) -->
+    <script th:src="@{/js/stomp.js}" src="js/stomp.js"></script>
+    <script th:src="@{/js/iw.js}" src="js/iw.js"></script>
+    <script th:src="@{/js/bootstrap.bundle-5.3.3.js}" src="/js/bootstrap.bundle-5.3.3.js"></script>
+    <script th:src="@{/js/svg.min.js}" src="/js/svg.min.js"></script>
+    <script th:src="@{/js/gameClient.js}"></script>
+
+    <!-- CODIGO PARA ENVIAR DATOS IMPORTANTES AL GAMECLIENT Y CARGAR LOS JUGADORES Y MENSAJES -->
+    <script th:inline="javascript">
+        document.addEventListener("DOMContentLoaded", () => {
+            GameClient.init({
+                gameCode: /*[[${game.code}]]*/ "",
+                currentUserId: /*[[${u.id}]]*/ 0,
+                hostId: /*[[${game.host.id}]]*/ 0,
+                currentUsername: /*[[${u.username}]]*/ "",
+                categories: /*[[${categories}]]*/[],
+                boardSize: /*[[${boardSize}]]*/ 64,
+                casillasComodin: /*[[${casillasComodin}]]*/[],
+                mode: "match"
+            }, ws);
+
+            GameClient.loadPlayers();
+            GameClient.loadMessages();
+        });
+
+    </script>
+
+</body>
+
+</html>

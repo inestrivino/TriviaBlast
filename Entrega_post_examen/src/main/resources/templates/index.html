@@ -1,0 +1,67 @@
+<!--
+    Página de inicio de TriviaBlast
+-->
+<!DOCTYPE html>
+<html lang="es" class="h-100" xmlns:th="http://www.thymeleaf.org"
+    xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<head>
+    <th:block th:replace="~{fragments/head :: header}" />
+    <title>TriviaBlast - Tu Juego de Trivia Online</title>
+    <link rel="stylesheet" th:href="@{/css/simple-datatables-10.css}" href="/css/simple-datatables-10.css"
+        type="text/css" />
+</head>
+
+<body class="d-flex flex-column h-100">
+
+    <header th:replace="~{fragments/nav.html :: nav}"></header>
+
+    <main class="flex-grow-1 d-flex align-items-center justify-content-center bg-light">
+        <div class="container text-center py-5">
+            <div class="row justify-content-center">
+                <div class="col-12 col-md-8 col-lg-6">
+
+                    <!-- Sección del Título y Logo -->
+                    <div class="d-flex align-items-center justify-content-center mb-4">
+                        <img th:src="@{/img/logo.png}" src="/img/favicon.png" alt="TriviaBlast Logo" class="img-fluid me-3"
+                            style="max-height: 80px; width: auto;">
+                        <h1 class="display-3 fw-bold mb-0 text-primary">TriviaBlast</h1>
+                    </div>
+
+                    <!-- Texto descriptivo de la aplicación -->
+                    <p class="lead text-muted mb-5 fs-5 px-3">
+                        ¡Bienvenido a la experiencia definitiva de preguntas y respuestas en línea!
+                        Demuestra tus conocimientos, compite en tiempo real contra jugadores de todo el mundo
+                        o desafíate a ti mismo en nuestro modo en solitario. ¿Tienes lo necesario para liderar el
+                        scoreboard?
+                    </p>
+
+                    <!-- Zona de Botones -->
+                    <div class="d-grid gap-3 d-sm-flex justify-content-sm-center">
+
+                        <a th:href="@{/join_game}" class="btn btn-primary btn-lg px-4 py-3 fs-5 shadow-sm" sec:authorize="isAuthenticated()">
+                            <i class="bi bi-people-fill me-2"></i>Join multiplayer game
+                        </a>
+
+                        <a th:href="@{/multi_game_setup}"
+                            class="btn btn-outline-primary btn-lg px-4 py-3 fs-5 shadow-sm"
+                            sec:authorize="isAuthenticated()">
+                            <i class="bi bi-plus-circle-fill me-2"></i>Create multiplayer game
+                        </a>
+
+                        <a th:href="@{/single_game_setup}" class="btn btn-success btn-lg px-4 py-3 fs-5 shadow-sm">
+                            <i class="bi bi-controller me-2"></i>Play singleplayer game
+                        </a>
+
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <th:block th:replace="~{fragments/footer.html :: footer}" />
+
+</body>
+
+</html>

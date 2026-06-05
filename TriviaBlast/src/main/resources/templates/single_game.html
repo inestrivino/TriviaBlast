@@ -1,0 +1,58 @@
+<!--
+    Pantalla de juego individual. triviablast.js muestra
+    las preguntas y envía respuestas al servidor
+-->
+
+<!DOCTYPE html>
+<html lang="en" class="h-100" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <th:block th:replace="~{fragments/head :: header}"></th:block>
+    <title>TriviaBlast - Single Player</title>
+</head>
+
+<body class="d-flex flex-column h-100">
+
+    <header th:replace="~{fragments/nav :: nav}"></header>
+
+    <main class="flex-grow-1 d-flex flex-column align-items-center justify-content-center">
+
+        <!-- Exit button and game status -->
+        <div class="w-100 d-flex justify-content-between align-items-center mb-3 px-2 px-md-0"
+            style="max-width: 700px;">
+            <a href="/" class="btn btn-danger me-2">Exit Game</a>
+            <div id="gameStatus" class="fw-bold fs-5 ms-2">
+                0/0 0 points
+            </div>
+        </div>
+
+        <!-- Question Card -->
+        <div id="gameCard" class="card shadow p-4 w-100 mb-3" style="max-width: 700px;">
+            <div id="question" class="fs-4 mb-4 text-center">Loading question...</div>
+
+            <div id="answers" class="d-grid gap-2 mb-3">
+                <!-- Buttons inserted by JS -->
+            </div>
+
+            <div id="feedback" class="fw-bold text-center mb-3"></div>
+        </div>
+
+        <!-- Next question button -->
+        <div id="nextContainer" class="w-100 d-flex justify-content-center mb-3 px-2 px-md-0"
+            style="max-width: 700px;">
+            <button id="nextBtn" class="btn btn-success btn-lg px-4" disabled>
+                Next Question
+            </button>
+        </div>
+
+    </main>
+
+    <th:block th:replace="~{fragments/footer :: footer}"></th:block>
+
+    <script th:inline="javascript">
+        window.questions = /*[[${questions}]]*/ [];
+    </script>
+
+</body>
+
+</html>

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="es" class="h-100" xmlns:th="http://www.thymeleaf.org"
+    xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<head>
+    <th:block th:replace="~{fragments/head :: header}" />
+    <title>Scoreboard</title>
+</head>
+
+<body class="d-flex flex-column h-100">
+
+    <header th:replace="~{fragments/nav.html :: nav}"></header>
+
+    <main class="flex-shrink-0">
+        <div class="container mt-5">
+
+            <h1 class="text-center mb-4">Scoreboard</h1>
+
+            <div class="row justify-content-center">
+                <div class="col-12 col-md-10 col-lg-8">
+
+                    <div class="card shadow p-4">
+
+                        <div class="table-responsive">
+                            <table class="table table-striped align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Points</th>
+                                        <th sec:authorize="hasRole('ADMIN')">Admin Action</th>
+                                        <th sec:authorize="!hasRole('ADMIN')">Report</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:each="user : ${users}" th:classappend="${!user.enabled} ? 'opacity-50'">
+
+                                        <td th:text="${user.username}">Name</td>
+                                        <td th:text="${user.totalPoints}">Points</td>
+
+                                        <!-- Columna exclusiva para Administradores: Ocultar y mostrar usuarios -->
+                                        <td sec:authorize="hasRole('ADMIN')">
+                                            <button type="button" class="btn btn-sm toggle-btn"
+                                                th:classappend="${user.enabled} ? 'btn-outline-danger' : 'btn-success'"
+                                                th:text="${user.enabled} ? 'Hide' : 'Display'"
+                                                th:attr="data-id=${user.id}">
+                                            </button>
+                                        </td>
+
+                                        <!-- Columna exclusiva para Usuarios normales: Denunciar a otros usuarios -->
+                                        <td sec:authorize="!hasRole('ADMIN')">
+                                            <button th:if="${session.u.id != user.id}" type="button"
+                                                class="btn btn-link link-danger p-0 border-0 btn-report"
+                                                th:attr="data-id=${user.id}, data-username=${user.username}"
+                                                title="Denunciar a este jugador">
+                                                <i class="bi bi-flag-fill fs-5"></i>
+                                            </button>
+                                            <span th:if="${session.u.id == user.id}" class="text-muted small">Tú</span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- DESPUÉS -->
+            <h1 class="text-center mb-4">Scoreboard semanal</h1>
+
+            <div class="row justify-content-center">
+                <div class="col-12 col-md-10 col-lg-8">
+                    <div class="card shadow p-4">
+                        <div id="weekly-tab">
+                            <p class="text-muted small mb-2">Puntos</p>
+                            <div th:if="${#lists.isEmpty(weeklyRows)}" class="text-muted">
+                                Nadie ha jugado esta semana todavía.
+                            </div>
+                            <div th:unless="${#lists.isEmpty(weeklyRows)}" class="table-responsive">
+                                <table class="table table-striped align-middle">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Name</th>
+                                            <th>Points (week)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr th:each="row, iter : ${weeklyRows}">
+                                            <td th:text="${iter.count}">1</td>
+                                            <td th:text="${row[0].username}">Name</td>
+                                            <td th:text="${row[1]}">0</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <th:block th:replace="~{fragments/footer.html :: footer}" />
+</body>
+
+</html>
