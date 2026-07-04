@@ -2,6 +2,29 @@
 
 **Plataforma de preguntas y respuestas en línea** para competir de forma individual o en salas multijugador.
 
+**Índice**:
+
+- [ TriviaBlast](#-triviablast)
+  - [1. Propuesta del Sistema](#1-propuesta-del-sistema)
+    - [Descripción General](#descripción-general)
+    - [Dependencias y librerías](#dependencias-y-librerías)
+    - [Pruebas externas](#pruebas-externas)
+    - [Otros detalles](#otros-detalles)
+    - [Roles y Sistema de Permisos](#roles-y-sistema-de-permisos)
+  - [2. Mecánicas de Juego Detalladas](#2-mecánicas-de-juego-detalladas)
+    - [2.1 Modalidad Individual (Singleplayer)](#21-modalidad-individual-singleplayer)
+    - [2.2 Modalidad Multijugador](#22-modalidad-multijugador)
+  - [3. Mensajería, Moderación y Seguridad](#3-mensajería-moderación-y-seguridad)
+    - [3.1 Chat en Vivo](#31-chat-en-vivo)
+    - [3.2 Canal de Alertas de Administración](#32-canal-de-alertas-de-administración)
+    - [3.3 Protocolo de Inhabilitación](#33-protocolo-de-inhabilitación)
+  - [4. Estructura de la Base de Datos](#4-estructura-de-la-base-de-datos)
+  - [5. Sobre la implementación](#5-sobre-la-implementación)
+    - [Otras funcionalidades](#otras-funcionalidades)
+    - [Usuarios de Prueba](#usuarios-de-prueba)
+    - [Recursos Externos y Uso de IA](#recursos-externos-y-uso-de-ia)
+  - [6. Trabajo Futuro](#6-trabajo-futuro)
+
 ---
 
 ## 1. Propuesta del Sistema
@@ -12,9 +35,11 @@ TriviaBlast es un juego interactivo web diseñado para ofrecer entretenimiento.
 Permite a los usuarios entrenar y acumular puntuación en partidas individuales, o competir en tiempo real con tablero clásico en salas privadas.
 Todas las preguntas se consumen en tiempo real de la API externa [Open Trivia Database (OpenTDB)](https://opentdb.com/), permitiendo una alta diversidad de preguntas posibles que recibir.
 
+![Inicio de la aplicación](welcome.png)
+
 ### Dependencias y librerías
 
-El proyecto hace uso de Bootstrap, Springboot, Maven, Thymeleaf, para crear una página dinámica con garantías de seguridad y funcionalidades básicas . También se usó la librería `svg.js` para el renderizado del taberlo de juego.
+El proyecto hace uso de **Bootstrap, Springboot, Maven, Thymeleaf**, para crear una página dinámica con garantías de seguridad y funcionalidades básicas . También se usó la librería `svg.js` para el renderizado del taberlo de juego.
 
 En ciertas partes de la página se puede apreciar el uso de tecnologías AJAX y Websockets, en específico durante la partida multijugador.
 
@@ -57,11 +82,16 @@ El modo multijugador se ha creado bajo estrictas reglas de sincronización para 
 * **Tablero de Juego:** Sistema competitivo por turnos sobre un tablero clásico con categorías representadas por colores. Gana el primer jugador en llegar al final del tablero.
 * **Sistema de Incentivos:** Al finalizar el encuentro, los **3 primeros jugadores de la clasificación de la sala ganan un bonus extraordinario de puntos** directo a su balance de cuenta global.
 
+![Lobby de juego](lobby.png)
+![Juego](game.png)
+
 ## 3. Mensajería, Moderación y Seguridad
 
 ### 3.1 Chat en Vivo
 
 Durante el transcurso de una partida multijugador, los usuarios disponen de un chat síncrono. Los mensajes enviados son recibidos por todos los participantes y muestran de forma explícita **la hora exacta de emisión y el usuario remitente**.
+
+![Chat en vivo entre dos jugadores](chat.png)
 
 ### 3.2 Canal de Alertas de Administración
 
